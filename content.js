@@ -61,6 +61,7 @@ function getClickedItem(mutationsList){
         var curNode = element;
         var flag = false;
 
+
         for(var k=0;k<10;k++) { // just to avoid infinite loop
             if(curNode.length == 0) break;
             if(curNode == null) break;
@@ -187,7 +188,31 @@ function getClickedItem(mutationsList){
 }
 
 function getPageID() {
-    return window.location.hash.substr(10)
+	var retValue = null;
+
+    $(".punch-filmstrip-selected-thumbnail-pagenumber").each(function() {
+		var thumbnaileObj = this;
+
+		$("g[id^='filmstrip-slide-']").each(function() {
+			var id = $(this).attr("id");
+
+			if(id.endsWith("-bg")) {
+				var commonAncestor = get_common_ancestor(thumbnaileObj, this);
+
+				if($(commonAncestor).is("g")) {
+					var splitted = $(this).attr("id").split("-");
+					var pageId = splitted[3];
+
+					retValue = pageId;
+
+					return false;
+				}
+			}
+		});
+    });
+
+	if(retValue == null) return window.location.hash.substr(10);
+	else return retValue;
 }
 
 function updatePdfjsHighlight(mutationsList) {
@@ -199,18 +224,41 @@ function updatePdfjsHighlight(mutationsList) {
     });
 }
 
+function get_common_ancestor(a, b)
+{
+    $parentsa = $(a).parents();
+    $parentsb = $(b).parents();
+
+    var found = null;
+
+    $parentsa.each(function() {
+        var thisa = this;
+
+        $parentsb.each(function() {
+            if (thisa == this)
+            {
+                found = this;
+                return false;
+            }
+        });
+
+        if (found) return false;
+    });
+
+    return found;
+}
+
 function updateCurPageAndObjects() {
     var pageId = getPageID();
 
-    issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
-        "pageId": pageId,
-        "clickedElements": clickedElements
-    });
+
+   	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
+   	    "pageId": pageId,
+   	    "clickedElements": clickedElements
+   	});
 }
 
 function printMessage2(mutationsList) {
-    console.log("** PRINT MESSAGE2 **");
-
     getClickedItem(mutationsList);
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
@@ -329,7 +377,7 @@ $(document).ready(function() {
                        "startIndex": details.data.startIndex,
                        "endIndex": details.data.endIndex,
                        "objId": null,
-                       "pageId": window.location.hash.substr(10)
+                       "pageId": getPageID()
                     });
                 }
                     
@@ -376,8 +424,7 @@ $(document).ready(function() {
         anotherObserver.observe(document.getElementById("slides-view"), mutationConfig2);
 
 		// setInterval(checkURL, 500);
-	}
-
+    }
  });
 
 /*
