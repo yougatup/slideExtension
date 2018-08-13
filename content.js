@@ -178,7 +178,7 @@ function getClickedItem(mutationsList){
     console.log(clickedElements);
     */
 
-    issueEvent(document, "removeAllHighlight", null);
+    issueEvent(document, "clearPlaneCanvas", null);
 
     if(clickedElements.length != 0) {
         for(var i=0;i<clickedElements.length;i++) {
@@ -264,6 +264,11 @@ function printMessage2(mutationsList) {
     updatePdfjsHighlight(mutationsList);
 }
 
+function getSlideObjectForHighlight(p) {
+	var slideObjId = p.data.slideObjId;
+
+	highlightSlideObject(slideObjId);
+}
 
 function highlightSlideObject(objId) {
     var boundingClientRect = document.getElementById(objId).getBoundingClientRect();
@@ -317,8 +322,8 @@ $(document).ready(function() {
                 case "HIGHLIGHT_SLIDE_OBJECT":
                     issueEvent(document, "highlightSlideObject", details.data);
                     break;
-                case "REMOVE_ALL_HIGHLIGHT":
-                    issueEvent(document, "removeAllHighlight", details.data);
+                case "CLEAR_PLANE_CANVAS":
+                    issueEvent(document, "clearPlaneCanvas", details.data);
                     break;
                 case "ROOT_UPDATE_HIGHLIGHT_REQUEST":
                     issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", details.data);
@@ -354,6 +359,22 @@ $(document).ready(function() {
         $(document).on("highlighted", function(e) {
             chromeSendMessage("ADDTEXT_GETOBJ", e.detail);
         });
+
+		$(document).on("highlightSlideObject", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("HIGHLIGHT_SLIDE_OBJECT", p);
+		});
+
+        $(document).on('clearPlaneCanvas', function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("CLEAR_PLANE_CANVAS", p);
+        });
+
+        $(document).on("getSlideObjectForHighlight", function(e) {
+            chromeSendMessage("GET_SLIDE_OBJECT_FOR_HIGHLIGHT", e.detail);
+        });
     }
 
 	if(this.location.hostname == "docs.google.com") {
@@ -382,6 +403,10 @@ $(document).ready(function() {
                 }
                     
                 break;
+
+				case "GET_SLIDE_OBJECT_FOR_HIGHLIGHT":
+					issueEvent(document, "getSlideObjectForHighlight", details);
+					break;
             }
 		});
 
@@ -395,10 +420,10 @@ $(document).ready(function() {
             chromeSendMessage("HIGHLIGHT_SLIDE_OBJECT", p);
         });
 
-        $(document).on('removeAllHighlight', function(e) {
+        $(document).on('clearPlaneCanvas', function(e) {
             var p = e.detail;
 
-            chromeSendMessage("REMOVE_ALL_HIGHLIGHT", p);
+            chromeSendMessage("CLEAR_PLANE_CANVAS", p);
         });
 
         $(document).on("ROOT_UPDATE_HIGHLIGHT_REQUEST", function(e) {
@@ -411,6 +436,10 @@ $(document).ready(function() {
             var p = e.detail;
 
             chromeSendMessage("ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", p);
+        });
+
+        $(document).on("getSlideObjectForHighlight", function(e) {
+			getSlideObjectForHighlight(e.detail);
         });
 
 		observer = new MutationObserver(printMessage);
