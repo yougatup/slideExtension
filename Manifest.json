@@ -1,0 +1,32 @@
+{
+	"name": "Fullstack Backgrounds",
+	"version": "1.0",
+	"manifest_version": 2,
+
+	"description": "Because Fullstack should be everywhere!",
+	"icons": {
+		"128": "fullstackicon.png"
+	},
+
+	"background": {
+		"scripts": ["backgroundScript.js"],
+		"persistent": false
+	},
+
+	"content_scripts": [
+	{
+		"matches": [
+			"<all_urls>"
+			],
+		"css": ["style.css"],
+		"js": ["jquery-3.3.1.min.js", 
+				"content.js"],
+		"all_frames": true
+	}
+	],
+
+	"permissions": [
+		"http://*/*", "https://*/*"
+	]
+}
+
