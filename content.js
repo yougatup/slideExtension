@@ -61,7 +61,6 @@ function getClickedItem(mutationsList){
         var curNode = element;
         var flag = false;
 
-
         for(var k=0;k<10;k++) { // just to avoid infinite loop
             if(curNode.length == 0) break;
             if(curNode == null) break;
@@ -210,6 +209,8 @@ function updateCurPageAndObjects() {
 }
 
 function printMessage2(mutationsList) {
+    console.log("** PRINT MESSAGE2 **");
+
     getClickedItem(mutationsList);
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
