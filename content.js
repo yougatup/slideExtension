@@ -40,48 +40,47 @@ function firefire() {
 	chrome.runtime.sendMessage({sendBack:true, data:null});
 }
 
+function iterateParent(element, objId) {
+    var curNode = element;
+    var flag = false;
+
+    for(var k=0;k<10;k++) { // just to avoid infinite loop
+        if(curNode.length == 0) break;
+        if(curNode == null) break;
+
+        var id = $(curNode).attr("id");
+
+        if(id != '' && id != null){
+            flag = true;
+            break;
+        }
+
+        if(objId != null) 
+            $(curNode).attr("gslide_objId", objId)
+
+        curNode = $(curNode).parent();
+    }
+
+    if(flag) return curNode;
+    else return null;
+}
+
+function getUnique(myList) {
+    var retValue = [];
+    
+    for(var i=0;i<myList.length;i++) {
+        if(retValue.indexOf(myList[i]) < 0) {
+            retValue.push(myList[i]);
+        }
+    }
+    // usage example:
+    return retValue;
+}
+
 function getClickedItem(mutationsList){
     var flag = false;
     var addedElements = [];
     var removedElements = [];
-
-    function getUnique(myList) {
-        var retValue = []
-        
-        for(var i=0;i<myList.length;i++) {
-            if(retValue.indexOf(myList[i]) < 0) {
-                retValue.push(myList[i]);
-            }
-        }
-        // usage example:
-        return retValue;
-    }
-
-    function iterateParent(element, objId) {
-        var curNode = element;
-        var flag = false;
-
-
-        for(var k=0;k<10;k++) { // just to avoid infinite loop
-            if(curNode.length == 0) break;
-            if(curNode == null) break;
-
-            var id = $(curNode).attr("id");
-
-            if(id != '' && id != null){
-                flag = true;
-                break;
-            }
-
-            if(objId != null) 
-                $(curNode).attr("gslide_objId", objId)
-
-            curNode = $(curNode).parent();
-        }
-
-        if(flag) return curNode;
-        else return null;
-    }
 
     function getCheckedElement(myList, hasSibling, addRemoveFlag) {
         var retValue = [];
@@ -253,7 +252,6 @@ function get_common_ancestor(a, b)
 function updateCurPageAndObjects() {
     var pageId = getPageID();
 
-
    	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
    	    "pageId": pageId,
    	    "clickedElements": clickedElements
@@ -284,10 +282,69 @@ function highlightSlideObject(objId) {
             });
 }
 
+function findUpdatedSlides(mutationsList) {
+    var slideId = [];
+
+    function findSlideId(target) {
+        var paragraphObj = iterateParent(target, null);
+        var splitted = paragraphObj.attr("id").split('-');
+        var retValue = [];
+
+        if(splitted.length >= 6 && splitted[4] == "paragraph") {
+            var slideObj = iterateParent($(paragraphObj).parent(), null);
+            var slide = iterateParent($(slideObj).parent(), null);
+
+            console.log(paragraphObj);
+            console.log(slideObj);
+            console.log(slide);
+
+            retValue.push(slide.attr("id").split('-')[3]);
+        }
+
+        return retValue;
+    }
+
+    for(var i=0;i<mutationsList.length;i++) {
+        var target;
+
+        for(var j=0;j<mutationsList[i].addedNodes.length;j++) {
+            target = $(mutationsList[i].addedNodes[j]);
+            slideId = slideId.concat(findSlideId(target));
+        }
+
+        for(var j=0;j<mutationsList[i].removedNodes.length;j++) {
+            if(mutationsList[i].removedNodes[j].classList.contains("sketchy-text-content-text")) {
+                target = $(mutationsList[i].target);
+                console.log($(target));
+                slideId = slideId.concat(findSlideId(target));
+
+                break;
+            }
+        }
+    }
+
+    slideId = getUnique(slideId);
+    console.log(slideId);
+
+    return slideId;
+}
+
 function printMessage(mutationsList) {
 	// console.log(mutationsList);
-	// console.log("### print happen ###");
-	// console.log(mutationsList);
+	console.log("### print happen ###");
+	console.log(mutationsList);
+
+    var updatedSlides = findUpdatedSlides(mutationsList);
+
+
+    for(var i=0;i<updatedSlides.length;i++) {
+        issueEvent(document, "updateSlideInfo", {
+                "pageId": updatedSlides[i]
+                });
+//	    highlightSlideObject(updatedSlides[i]);
+    }
+
+
 	// checkURL();
 	// console.log($("[id|='filmstrip-slide']"));
 
@@ -319,6 +376,7 @@ $(document).ready(function() {
                 case "URL_CHANGED":
                     break;
                 case "ADDTEXT_SENDTEXT":
+                    console.log(details.data);
                     issueEvent(document, "addText", details.data);
                     break;
                 case "HIGHLIGHT_SLIDE_OBJECT":
@@ -335,6 +393,9 @@ $(document).ready(function() {
                     break;
                 case "SEND_IMAGE":
                     issueEvent(document, "SEND_IMAGE", details.data);
+                    break;
+                case "UPDATE_SLIDE_INFO":
+                    issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
                     break;
             }
 		});
@@ -394,12 +455,15 @@ $(document).ready(function() {
                 case "ADDTEXT_GETOBJ":
                 if(clickedElements.length > 0) {
                     for(var i=0;i<clickedElements.length;i++) {
+                        console.log(details.data);
+
                         chromeSendMessage("ADDTEXT_SENDTEXT", {
                            "text": details.data.text,
                            "pageNumber": details.data.pageNumber,
                            "startIndex": details.data.startIndex,
                            "endIndex": details.data.endIndex,
                            "objId": clickedElements[i].substr(7),
+                           "color": details.data.color,
                            "pageId": null
                                 });
                     }
@@ -411,6 +475,7 @@ $(document).ready(function() {
                        "startIndex": details.data.startIndex,
                        "endIndex": details.data.endIndex,
                        "objId": null,
+                       "color": details.data.color,
                        "pageId": getPageID()
                     });
                 }
@@ -453,6 +518,12 @@ $(document).ready(function() {
 
         $(document).on("getSlideObjectForHighlight", function(e) {
 			getSlideObjectForHighlight(e.detail);
+        });
+
+        $(document).on("updateSlideInfo", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("UPDATE_SLIDE_INFO", p);
         });
 
 		observer = new MutationObserver(printMessage);
