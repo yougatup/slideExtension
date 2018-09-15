@@ -296,7 +296,7 @@ function getParagraphStructure() {
     var idTree;
     var curPage = getPageID();
 
-    console.log(getIdTree($("#editor-" + curPage)));
+    curParagraphs = getIdTree($("#editor-" + curPage));
 }
 
 function printMessage2(mutationsList) {
@@ -306,24 +306,93 @@ function printMessage2(mutationsList) {
     updatePdfjsHighlight(mutationsList);
 }
 
+function isIncluded(_a, b) {
+    var a = {
+        left: _a.left,
+        top: _a.top,
+        width: _a.width,
+        height: _a.height
+    };
+
+    var widthMargin = b.width;
+    var heightMargin  = b.height / 2;
+
+    a.left -= widthMargin;
+    a.top -= heightMargin;
+    a.width += 2 * widthMargin;
+    a.height += 2 * heightMargin;
+
+    if(a.top <= b.top &&
+       b.top + b.height <= a.top + a.height) return true;
+    else return false;
+}
+
 function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
+
+    console.log(cursorDOM);
 
     if($(cursorDOM).length > 0) {
         var cursorLeft = $(cursorDOM).offset().left;
         var cursorTop = $(cursorDOM).offset().top;
         var cursorHeight = $(cursorDOM).height();
+        var cursorWidth = $(cursorDOM).width();
 
-        console.log(cursorLeft + ' ' + cursorTop + ' ' + cursorHeight);
+        var cursorCoor  = {
+            left: cursorLeft,
+            top: cursorTop,
+            height: cursorHeight,
+            width: cursorWidth
+        };
+
+        var flag = false;
+
+        for(var i=0;i<curParagraphs.length;i++) {
+            var box = curParagraphs[i];
+
+            if(clickedElements.indexOf($(box.box).attr("id")) >= 0) {
+                for(var j=0;j<box.paragraphs.length;j++) {
+                    var paragraph = box.paragraphs[j];
+                    var pid = $(paragraph).attr("id");
+
+                    if(isIncluded(document.getElementById(pid).getBoundingClientRect(), cursorCoor)) {
+                        visualizeParagraph(pid);
+                        flag = true;
+                    }
+                }
+            }
+        }
+
+        if(!flag) {
+            clearVisualizeParagraph();
+        }
 
         issueEvent(document, "showAutoComplete", {
             left: cursorLeft,
             top: cursorTop + cursorHeight
         });
 
-//         $("#slidePlaneCanvasPopup").css("left", cursorLeft);
+//        $("#slidePlaneCanvasPopup").css("left", cursorLeft);
 //        $("#slidePlaneCanvasPopup").css("top", cursorTop + cursorHeight);
     }
+    else {
+        clearVisualizeParagraph();
+    }
+}
+
+function clearVisualizeParagraph() {
+    issueEvent(document, "clearVisualizeParagraph", null);
+}
+
+function visualizeParagraph(pid) {
+    var boundingClientRect = document.getElementById(pid).getBoundingClientRect();
+
+    issueEvent(document, "visualizeParagraph", {
+        height: boundingClientRect.height,
+        width: boundingClientRect.width,
+        left: boundingClientRect.left,
+        top: boundingClientRect.top
+    });
 }
 
 function getSlideObjectForHighlight(p) {
@@ -462,6 +531,13 @@ $(document).ready(function() {
                 case "showAutoComplete":
                     issueEvent(document, "showAutoComplete", details.data);
                     break;
+                case "clearVisualizeParagraph":
+                    issueEvent(document, "clearVisualizeParagraph", details.data);
+                    break;
+                case "visualizeParagraph":
+                    issueEvent(document, "visualizeParagraph", details.data);
+                    break;
+
             }
 		});
 
@@ -591,6 +667,18 @@ $(document).ready(function() {
             var p = e.detail;
 
             chromeSendMessage("showAutoComplete", p);
+        });
+
+        $(document).on("clearVisualizeParagraph", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("clearVisualizeParagraph", p);
+                });
+
+        $(document).on("visualizeParagraph", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("visualizeParagraph", p);
         });
 
 		observer = new MutationObserver(printMessage);
