@@ -307,7 +307,23 @@ function printMessage2(mutationsList) {
 }
 
 function printMessage3(mutationsList) {
-    console.log($("[shape-rendering='crispEdges'][style*='opacity: 1;']"));
+    var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
+
+    if($(cursorDOM).length > 0) {
+        var cursorLeft = $(cursorDOM).offset().left;
+        var cursorTop = $(cursorDOM).offset().top;
+        var cursorHeight = $(cursorDOM).height();
+
+        console.log(cursorLeft + ' ' + cursorTop + ' ' + cursorHeight);
+
+        issueEvent(document, "showAutoComplete", {
+            left: cursorLeft,
+            top: cursorTop + cursorHeight
+        });
+
+//         $("#slidePlaneCanvasPopup").css("left", cursorLeft);
+//        $("#slidePlaneCanvasPopup").css("top", cursorTop + cursorHeight);
+    }
 }
 
 function getSlideObjectForHighlight(p) {
@@ -443,6 +459,9 @@ $(document).ready(function() {
                 case "UPDATE_SLIDE_INFO":
                     issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
                     break;
+                case "showAutoComplete":
+                    issueEvent(document, "showAutoComplete", details.data);
+                    break;
             }
 		});
 
@@ -566,6 +585,12 @@ $(document).ready(function() {
             var p = e.detail;
 
             chromeSendMessage("UPDATE_SLIDE_INFO", p);
+        });
+
+        $(document).on("showAutoComplete", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("showAutoComplete", p);
         });
 
 		observer = new MutationObserver(printMessage);
