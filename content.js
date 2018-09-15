@@ -12,6 +12,8 @@ var mutationConfig;
 var observer;
 
 var clickedElements = [];
+var curParagraphs = [];
+var curPageID = '';
 
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
@@ -258,10 +260,54 @@ function updateCurPageAndObjects() {
    	});
 }
 
+function getIdTree(root) {
+    var childrenCnt = $(root)[0].children.length;
+    var tree = {};
+    var childs = [];
+
+    for(var i=0;i<childrenCnt;i++) {
+        var children = $(root)[0].children[i];
+
+        if($(children).attr("id") != null) {
+            childs.push({'box': $(children),
+                         'paragraphs': []
+                    });
+        }
+    }
+
+    for(var j=0;j<childs.length;j++) {
+        var rootID = $(childs[j]["box"]).attr("id");
+
+        for(var k=0;k<10;k++) {
+            var elem = $("#" + rootID + "-paragraph-" + k);
+
+            if($(elem).length <= 0) break;
+
+            childs[j]["paragraphs"].push(elem);
+        }
+    }
+
+//    console.log(childs);
+
+    return childs;
+}
+
+function getParagraphStructure() {
+    var idTree;
+    var curPage = getPageID();
+
+    console.log(getIdTree($("#editor-" + curPage)));
+}
+
 function printMessage2(mutationsList) {
+    getParagraphStructure();
     getClickedItem(mutationsList);
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
+}
+
+function printMessage3(mutationsList) {
+    console.log($("[shape-rendering='crispEdges'][style*='opacity: 1;']"));
 }
 
 function getSlideObjectForHighlight(p) {
@@ -488,10 +534,6 @@ $(document).ready(function() {
             }
 		});
 
-        $(document).on('keyup', function(e) {
-              console.log('Caret at: ', e.target.selectionStart)
-        });
-
         $(document).on('highlightSlideObject', function(e) {
             var p = e.detail;
 
@@ -535,6 +577,12 @@ $(document).ready(function() {
 
 		mutationConfig2 = { attributes: false, childList: true, subtree: true };
         anotherObserver.observe(document.getElementById("slides-view"), mutationConfig2);
+
+        anotherObserver3 = new MutationObserver(printMessage3);
+
+        mutationConfig3 = { attributes: true, childList: false, subtree: true};
+        anotherObserver3.observe(document.getElementById("slides-view"), mutationConfig3);
+
 
 		// setInterval(checkURL, 500);
     }
