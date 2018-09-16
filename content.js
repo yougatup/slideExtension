@@ -330,8 +330,6 @@ function isIncluded(_a, b) {
 function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
 
-    console.log(cursorDOM);
-
     if($(cursorDOM).length > 0) {
         var cursorLeft = $(cursorDOM).offset().left;
         var cursorTop = $(cursorDOM).offset().top;
@@ -425,10 +423,6 @@ function findUpdatedSlides(mutationsList) {
             var slideObj = iterateParent($(paragraphObj).parent(), null);
             var slide = iterateParent($(slideObj).parent(), null);
 
-            console.log(paragraphObj);
-            console.log(slideObj);
-            console.log(slide);
-
             retValue.push(slide.attr("id").split('-')[3]);
         }
 
@@ -462,11 +456,7 @@ function findUpdatedSlides(mutationsList) {
 
 function printMessage(mutationsList) {
 	// console.log(mutationsList);
-	console.log("### print happen ###");
-	console.log(mutationsList);
-
     var updatedSlides = findUpdatedSlides(mutationsList);
-
 
     for(var i=0;i<updatedSlides.length;i++) {
         issueEvent(document, "updateSlideInfo", {
@@ -474,7 +464,6 @@ function printMessage(mutationsList) {
                 });
 //	    highlightSlideObject(updatedSlides[i]);
     }
-
 
 	// checkURL();
 	// console.log($("[id|='filmstrip-slide']"));
@@ -629,6 +618,10 @@ $(document).ready(function() {
             }
 		});
 
+        $(window).on('keypress', function (evt){
+                console.log("it worked!");
+                });
+
         $(document).on('highlightSlideObject', function(e) {
             var p = e.detail;
 
@@ -681,6 +674,13 @@ $(document).ready(function() {
             chromeSendMessage("visualizeParagraph", p);
         });
 
+        document.onkeypress = function(e) {
+            console.log("hmm?");
+        }
+/*
+        $(document).on("keypress", function(e) {
+                console.log('keydown -- ext');
+                });*/
 		observer = new MutationObserver(printMessage);
 
 		mutationConfig = { attributes: false, childList: true, subtree: true };

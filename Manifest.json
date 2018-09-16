@@ -26,7 +26,33 @@
 	],
 
 	"permissions": [
-		"http://*/*", "https://*/*"
-	]
+		"http://*/*", "https://*/*", "tabs"
+	],
+
+        "commands": {
+          "toggle-feature-foo": {
+            "suggested_key": {
+              "default": "Alt+1",
+              "mac": "Alt+1"
+            },
+            "description": "Toggle feature foo"
+          },
+          "_execute_browser_action": {
+            "suggested_key": {
+              "windows": "Ctrl+Shift+Y",
+              "mac": "Command+Shift+Y",
+              "chromeos": "Ctrl+Shift+U",
+              "linux": "Ctrl+Shift+J"
+            }
+          },
+          "_execute_page_action": {
+            "suggested_key": {
+              "default": "Ctrl+Shift+E",
+              "windows": "Alt+Shift+P",
+              "mac": "Alt+Shift+P"
+            }
+          }
+        }
+
 }
 
