@@ -14,6 +14,7 @@ var observer;
 var clickedElements = [];
 var curParagraphs = [];
 var curPageID = '';
+var selectedParagraph = '';
 
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
@@ -327,6 +328,41 @@ function isIncluded(_a, b) {
     else return false;
 }
 
+function getParagraphText(p) {
+    var textBoxes = $(p).find(".sketchy-text-content-text");
+    var retText = '';
+
+    for(var i=0;i<textBoxes.length;i++) {
+        var box = textBoxes[i];
+        var innerText = box.innerHTML;
+
+        var state = 0;
+        // 0: content, 1: inner <text> 
+
+        while(innerText != '') {
+            var position = -1;
+
+            for(var j=0;j<innerText.length;j++) {
+                if(innerText[j] == '>') {
+                    position = j;
+                    break;
+                }
+            }
+
+            innerText = innerText.substr(position+1);
+
+            var closingPosition = innerText.indexOf("</text>");
+            var content = innerText.substr(0, closingPosition);
+
+            retText = retText + ' ' + content;
+
+            innerText = innerText.substr(closingPosition + 7);
+        }
+    }
+
+    return retText;
+}
+
 function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
 
@@ -356,6 +392,10 @@ function printMessage3(mutationsList) {
                     if(isIncluded(document.getElementById(pid).getBoundingClientRect(), cursorCoor)) {
                         visualizeParagraph(pid);
                         flag = true;
+
+						selectedParagraph = $("#" + pid);
+
+						break;
                     }
                 }
             }
@@ -364,11 +404,16 @@ function printMessage3(mutationsList) {
         if(!flag) {
             clearVisualizeParagraph();
         }
+		else {
+			var paragraphText = getParagraphText(selectedParagraph);
 
-        issueEvent(document, "showAutoComplete", {
-            left: cursorLeft,
-            top: cursorTop + cursorHeight
-        });
+            highlightSearchResults(paragraphText);
+
+    	    issueEvent(document, "showAutoComplete", {
+    	        left: cursorLeft,
+    	        top: cursorTop + cursorHeight
+    	    });
+		}
 
 //        $("#slidePlaneCanvasPopup").css("left", cursorLeft);
 //        $("#slidePlaneCanvasPopup").css("top", cursorTop + cursorHeight);
@@ -376,6 +421,12 @@ function printMessage3(mutationsList) {
     else {
         clearVisualizeParagraph();
     }
+}
+
+function highlightSearchResults(p) {
+    issueEvent(document, "highlightSearchResults", {
+        words: p
+    });
 }
 
 function clearVisualizeParagraph() {
@@ -549,6 +600,9 @@ $(document).ready(function() {
                 case "PDFJS_REMOVE_HIGHLIGHT":
                     issueEvent(document, "PDFJS_REMOVE_HIGHLIGHT", details);
                     break;
+                case "highlightSearchResults":
+                    issueEvent(document, "highlightSearchResults", details);
+                    break;
             }
 		});
 
@@ -573,7 +627,7 @@ $(document).ready(function() {
 
             chromeSendMessage("SEND_IMAGE", p);
         });
-
+ 
         $(document).on("getSlideObjectForHighlight", function(e) {
             chromeSendMessage("GET_SLIDE_OBJECT_FOR_HIGHLIGHT", e.detail);
         });
@@ -672,6 +726,12 @@ $(document).ready(function() {
             var p = e.detail;
 
             chromeSendMessage("visualizeParagraph", p);
+        });
+
+        $(document).on("highlightSearchResults", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("highlightSearchResults", p);
         });
 
         document.onkeypress = function(e) {
