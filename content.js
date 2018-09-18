@@ -16,6 +16,8 @@ var curParagraphs = [];
 var curPageID = '';
 var selectedParagraph = '';
 
+var clickEvent;
+
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
  
@@ -403,15 +405,22 @@ function printMessage3(mutationsList) {
 
         if(!flag) {
             clearVisualizeParagraph();
+
+            issueEvent(document, "removeAutoComplete", null);
         }
 		else {
 			var paragraphText = getParagraphText(selectedParagraph);
 
-            highlightSearchResults(paragraphText);
+            // console.log(curParagraphs);
+            var bg = curParagraphs[0].box;
+            var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
+            // highlightSearchResults(paragraphText);
 
     	    issueEvent(document, "showAutoComplete", {
-    	        left: cursorLeft,
-    	        top: cursorTop + cursorHeight
+    	        top: boundingClientRect.top + boundingClientRect.height + 20,
+                left: boundingClientRect.left,
+                width: boundingClientRect.width,
+                words: paragraphText
     	    });
 		}
 
@@ -420,14 +429,16 @@ function printMessage3(mutationsList) {
     }
     else {
         clearVisualizeParagraph();
+
+        issueEvent(document, "removeAutoComplete", null);
     }
 }
-
+/*
 function highlightSearchResults(p) {
     issueEvent(document, "highlightSearchResults", {
         words: p
     });
-}
+}*/
 
 function clearVisualizeParagraph() {
     issueEvent(document, "clearVisualizeParagraph", null);
@@ -545,6 +556,7 @@ $(document).ready(function() {
 		chrome.runtime.onMessage.addListener(function(details) {
             switch(details.type) {
                 case "URL_CHANGED":
+                    console.log("URL_CHANGED");
                     break;
                 case "ADDTEXT_SENDTEXT":
                     console.log(details.data);
@@ -569,13 +581,22 @@ $(document).ready(function() {
                     issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
                     break;
                 case "showAutoComplete":
-                    issueEvent(document, "showAutoComplete", details.data);
+                    issueEvent(document, "locateAutoComplete", details.data);
+                    break;
+                case "appearAutoComplete":
+                    issueEvent(document, "appearAutoComplete", details.data);
+                    break;
+                case "removeAutoComplete":
+                    issueEvent(document, "removeAutoComplete", details.data);
                     break;
                 case "clearVisualizeParagraph":
                     issueEvent(document, "clearVisualizeParagraph", details.data);
                     break;
                 case "visualizeParagraph":
                     issueEvent(document, "visualizeParagraph", details.data);
+                    break;
+                case "sendAutoCompleteInstance":
+                    issueEvent(document, "sendAutoCompleteInstance", details.data);
                     break;
 
             }
@@ -600,8 +621,11 @@ $(document).ready(function() {
                 case "PDFJS_REMOVE_HIGHLIGHT":
                     issueEvent(document, "PDFJS_REMOVE_HIGHLIGHT", details);
                     break;
-                case "highlightSearchResults":
+                case "showAutoComplete":
                     issueEvent(document, "highlightSearchResults", details);
+                    break;
+                case "removeAutoComplete":
+                    issueEvent(document, "removeAutoComplete", details);
                     break;
             }
 		});
@@ -626,6 +650,18 @@ $(document).ready(function() {
             var p = e.detail;
 
             chromeSendMessage("SEND_IMAGE", p);
+        });
+
+        $(document).on("appearAutoComplete", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("appearAutoComplete", p);
+        });
+
+        $(document).on("sendAutoCompleteInstance", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("sendAutoCompleteInstance", p);
         });
  
         $(document).on("getSlideObjectForHighlight", function(e) {
@@ -672,10 +708,6 @@ $(document).ready(function() {
             }
 		});
 
-        $(window).on('keypress', function (evt){
-                console.log("it worked!");
-                });
-
         $(document).on('highlightSlideObject', function(e) {
             var p = e.detail;
 
@@ -716,6 +748,12 @@ $(document).ready(function() {
             chromeSendMessage("showAutoComplete", p);
         });
 
+        $(document).on("removeAutoComplete", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("removeAutoComplete", p);
+        });
+
         $(document).on("clearVisualizeParagraph", function(e) {
             var p = e.detail;
 
@@ -734,9 +772,78 @@ $(document).ready(function() {
             chromeSendMessage("highlightSearchResults", p);
         });
 
-        document.onkeypress = function(e) {
-            console.log("hmm?");
-        }
+        $(document).on("slideKeyDown", function(e) {
+                var p = e.detail;
+
+                // console.log(p);
+
+                if(p.keyCode == 40) { // down arrow
+
+                   // document.dispatchEvent(clickEvent);
+
+                /*
+                    keyDown(27, function() {
+                            keyPress(32, function() {
+                                    keyDown(8, null);
+                                    });
+                            });*/
+                }
+
+                ////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////
+                /////////// keyPress and keyDown functions /////////////
+                ////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////
+
+                function keyPress(keyCode, myCallback) {
+                    // for putting characters
+
+                    var ee = new KeyboardEvent("keypress", {
+                        bubbles : true,
+                        cancelable : false,
+                        shiftKey : false,
+                        keyCode : keyCode
+                    });
+    
+                    console.log(keyCode);
+    
+    	    	    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+
+                    console.log(editingIFrame);
+                    console.log(editingIFrame.contentDocument);
+                    editingIFrame.contentDocument.dispatchEvent(ee);
+                    
+                    if(myCallback != null)
+                        myCallback();
+                }
+
+                function keyDown(keyCode, myCallback) {
+                    // ESC: 27
+                    // Back space: 8
+                    // Space: 32
+    
+                    var ee = new KeyboardEvent("keydown", {
+                        bubbles : true,
+                        cancelable : false,
+                        shiftKey : false,
+                        keyCode : keyCode
+                    });
+    
+                    console.log(keyCode);
+    
+    	    	    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+
+                    console.log(editingIFrame);
+                    console.log(editingIFrame.contentDocument);
+                    editingIFrame.contentDocument.dispatchEvent(ee);
+                    
+                    if(myCallback != null)
+                        myCallback();
+                }
+        });
+
+
+
 /*
         $(document).on("keypress", function(e) {
                 console.log('keydown -- ext');
@@ -756,8 +863,43 @@ $(document).ready(function() {
         mutationConfig3 = { attributes: true, childList: false, subtree: true};
         anotherObserver3.observe(document.getElementById("slides-view"), mutationConfig3);
 
-
+        setTimeout(attachKeyListener, 5000);
 		// setInterval(checkURL, 500);
+
+        function attachKeyListener() {
+    		var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+            var myDoc = document;
+    
+            // console.log(editingIFrame);
+    
+    	    if (editingIFrame) {
+    		    editingIFrame.contentDocument.addEventListener("keydown", hook, false);
+
+    		    editingIFrame.contentDocument.addEventListener("click", clickHook, false);
+    		}
+/*
+            $(document).on("click", function(e) {
+                    console.log(e);
+
+                    clickEvent = e.originalEvent;
+
+                    console.log(clickEvent);
+                    });*/
+    
+            function clickHook(e) {
+                console.log(e);
+            }
+
+    		function hook(e){
+                // console.log(e);
+    		    var keyCode = e.keyCode;
+    
+                issueEvent(document, "slideKeyDown", {
+                    keyCode: e.keyCode
+                });
+    		}
+
+        }
     }
  });
 
