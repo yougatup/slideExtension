@@ -14,9 +14,26 @@ var observer;
 var clickedElements = [];
 var curParagraphs = [];
 var curPageID = '';
+
+var selectedBoxID = null;
 var selectedParagraph = '';
+var selectedParagraphObj = null;
+var selectedParagraphNumber = null;
+var selectedPage = null;
 
 var clickEvent;
+var autoCompleteAppeared = false;
+var autoCompleteConfirmed = false;
+
+var systemTurn = false;
+
+var systemMouseDown = false;
+var systemMouseCoorInfo = {
+    screenX: null,
+    screenY: null,
+    clientX: null,
+    clientY: null
+};
 
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
@@ -191,6 +208,95 @@ function getClickedItem(mutationsList){
         }
     }
 */
+
+    if(systemMouseDown) {
+        console.log("system mouse up");
+        document.elementFromPoint(systemMouseCoorInfo.clientX, systemMouseCoorInfo.clientY).dispatchEvent(new MouseEvent('mouseup', {bubbles: true, screenX: systemMouseCoorInfo.systemX, screenY: systemMouseCoorInfo.systemY, clientX: systemMouseCoorInfo.clientX, clientY: systemMouseCoorInfo.clientY}));
+
+        systemMouseDown = false;
+        systemTurn = false;
+
+        keyPress(8, function() {
+           keyPress(65, function() {
+                   keyPress(66, function() {
+                           keyDown(8, function() {
+                                   keyDown(8, function() {
+                                           keyPress(8, null);
+                                           });
+                                   });
+                           });
+                   });
+                });
+//                        keyDown(8, function() { // back space
+    }
+}
+
+function keyUp(keyCode, myCallback) {
+    // for putting characters
+
+    var ee = new KeyboardEvent("keyup", {
+        bubbles : true,
+        cancelable : false,
+        shiftKey : false,
+        keyCode : keyCode
+    });
+
+    console.log(keyCode);
+
+    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+
+    console.log(editingIFrame);
+    console.log(editingIFrame.contentDocument);
+    editingIFrame.contentDocument.dispatchEvent(ee);
+    
+    if(myCallback != null)
+        myCallback();
+}
+function keyPress(keyCode, myCallback) {
+    // for putting characters
+
+    var ee = new KeyboardEvent("keypress", {
+        bubbles : true,
+        cancelable : false,
+        shiftKey : false,
+        keyCode : keyCode
+    });
+
+    console.log(keyCode);
+
+    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+
+    console.log(editingIFrame);
+    console.log(editingIFrame.contentDocument);
+    editingIFrame.contentDocument.dispatchEvent(ee);
+    
+    if(myCallback != null)
+        myCallback();
+}
+
+function keyDown(keyCode, myCallback) {
+    // ESC: 27
+    // Back space: 8
+    // Space: 32
+
+    var ee = new KeyboardEvent("keydown", {
+        bubbles : true,
+        cancelable : false,
+        shiftKey : false,
+        keyCode : keyCode
+    });
+
+    console.log(keyCode);
+    console.log(ee);
+
+    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
+
+    console.log(editingIFrame);
+    console.log(editingIFrame.contentDocument);
+    editingIFrame.contentDocument.dispatchEvent(ee);
+    
+    if(myCallback != null)
+        myCallback();
 }
 
 function getPageID() {
@@ -302,11 +408,57 @@ function getParagraphStructure() {
     curParagraphs = getIdTree($("#editor-" + curPage));
 }
 
+function clickParagraph(boxObjID, paragraphNumber) {
+    console.log(curParagraphs);
+
+    for(var i=0;i<curParagraphs.length;i++) {
+        var objId = $(curParagraphs[i].box).attr("id").split("-")[1];
+
+        if(objId == boxObjID) {
+            var paragraphObj = curParagraphs[i].paragraphs[paragraphNumber];
+            var boundary = $(paragraphObj)[0].getBoundingClientRect();
+
+            console.log($(paragraphObj)[0].getBoundingClientRect());
+
+            console.log(window.screenX + " " + window.screenY);
+
+            var screenX = parseFloat(window.screenX + boundary.left + boundary.width - 10);
+            var screenY = parseFloat(window.screenY + boundary.top + boundary.height - 10);
+
+            systemMouseCoorInfo.screenX = screenX;
+            systemMouseCoorInfo.screenY = screenY;
+            systemMouseCoorInfo.clientX = boundary.left + boundary.width;
+            systemMouseCoorInfo.clientY = boundary.top + boundary.height;
+
+            clickSystemMouse();
+
+            break;
+        }
+    }
+
+    console.log(curParagraphs);
+    console.log(boxObjID);
+    console.log($("#editor-" + boxObjID));
+    console.log(paragraphNumber);
+}
+
 function printMessage2(mutationsList) {
     getParagraphStructure();
     getClickedItem(mutationsList);
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
+
+    if(systemTurn && !systemMouseDown) {
+        clickParagraph(selectedBoxID, selectedParagraphNumber);
+    }
+}
+
+function clickSystemMouse() {
+    systemMouseDown = true;
+
+    console.log("system mouse down");
+
+    document.elementFromPoint(systemMouseCoorInfo.clientX, systemMouseCoorInfo.clientY).dispatchEvent(new MouseEvent('mousedown', {bubbles: true, screenX: systemMouseCoorInfo.systemX, screenY: systemMouseCoorInfo.systemY, clientX: systemMouseCoorInfo.clientX, clientY: systemMouseCoorInfo.clientY}));
 }
 
 function isIncluded(_a, b) {
@@ -369,6 +521,13 @@ function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
 
     if($(cursorDOM).length > 0) {
+        if(autoCompleteConfirmed) {
+            autoCompleteConfirmed = false;
+            systemTurn = false;
+
+            issueEvent(document, "removeAutoComplete", null);
+        }
+
         var cursorLeft = $(cursorDOM).offset().left;
         var cursorTop = $(cursorDOM).offset().top;
         var cursorHeight = $(cursorDOM).height();
@@ -395,7 +554,11 @@ function printMessage3(mutationsList) {
                         visualizeParagraph(pid);
                         flag = true;
 
+                        selectedBoxID = $(box.box).attr("id").split("-")[1]; 
 						selectedParagraph = $("#" + pid);
+                        selectedParagraphObj = paragraph;
+                        selectedPage = getPageID();
+                        selectedParagraphNumber = j;
 
 						break;
                     }
@@ -430,7 +593,8 @@ function printMessage3(mutationsList) {
     else {
         clearVisualizeParagraph();
 
-        issueEvent(document, "removeAutoComplete", null);
+        if(!autoCompleteConfirmed)
+            issueEvent(document, "removeAutoComplete", null);
     }
 }
 /*
@@ -441,6 +605,8 @@ function highlightSearchResults(p) {
 }*/
 
 function clearVisualizeParagraph() {
+    selectedParagraph = '';
+
     issueEvent(document, "clearVisualizeParagraph", null);
 }
 
@@ -598,7 +764,15 @@ $(document).ready(function() {
                 case "sendAutoCompleteInstance":
                     issueEvent(document, "sendAutoCompleteInstance", details.data);
                     break;
-
+                case "prepareAutoCompleteNumbers":
+                    issueEvent(document, "prepareAutoCompleteNumbers", details.data);
+                    break;
+                case "showAutoCompleteNumbers":
+                    issueEvent(document, "showAutoCompleteNumbers", details.data);
+                    break;
+                case "autoCompleteRegister":
+                    issueEvent(document, "autoCompleteRegister", details.data);
+                    break;
             }
 		});
 
@@ -609,6 +783,20 @@ $(document).ready(function() {
         $(document).on("PDFJS_REMOVE_HIGHLIGHT", function(e) {
             chromeSendMessage("PDFJS_REMOVE_HIGHLIGHT", e.detail);
         });
+
+        $(document).on("autoCompleteSubmitted", function(e) {
+            chromeSendMessage("autoCompleteSubmitted", e.detail);
+        });
+
+        $(document).on("autoCompleteCancelled", function(e) {
+            chromeSendMessage("autoCompleteCancelled", e.detail);
+        });
+
+		$(document).on("prepareAutoCompleteNumbersDone", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("prepareAutoCompleteNumbersDone", p);
+		});
 	}
     
     // pdf.js contents script
@@ -626,6 +814,18 @@ $(document).ready(function() {
                     break;
                 case "removeAutoComplete":
                     issueEvent(document, "removeAutoComplete", details);
+                    break;
+                case "prepareAutoCompleteNumbers":
+                    issueEvent(document, "prepareAutoCompleteNummbers", details.data);
+                    break;
+                case "showAutoCompleteNumbers":
+                    issueEvent(document, "showAutoCompleteNumbers", details.data);
+                    break;
+                case "autoCompleteSubmitted":
+                    issueEvent(document, "autoCompleteSubmitted", details.data);
+                    break;
+                case "autoCompleteCancelled":
+                    issueEvent(document, "autoCompleteCancelled", details.data);
                     break;
             }
 		});
@@ -652,6 +852,12 @@ $(document).ready(function() {
             chromeSendMessage("SEND_IMAGE", p);
         });
 
+        $(document).on("autoCompleteRegister", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("autoCompleteRegister", p);
+        });
+
         $(document).on("appearAutoComplete", function(e) {
             var p = e.detail;
 
@@ -663,6 +869,19 @@ $(document).ready(function() {
 
             chromeSendMessage("sendAutoCompleteInstance", p);
         });
+
+        $(document).on("autoCompleteAppeared", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("autoCompleteAppeared", p);
+        });
+
+        $(document).on("autoCompleteDisappeared", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("autoCompleteDisappeared", p);
+        });
+ 
  
         $(document).on("getSlideObjectForHighlight", function(e) {
             chromeSendMessage("GET_SLIDE_OBJECT_FOR_HIGHLIGHT", e.detail);
@@ -705,13 +924,47 @@ $(document).ready(function() {
 				case "GET_SLIDE_OBJECT_FOR_HIGHLIGHT":
 					issueEvent(document, "getSlideObjectForHighlight", details);
 					break;
+                case "autoCompleteAppeared":
+					issueEvent(document, "autoCompleteAppeared", details);
+					break;
+                case "autoCompleteDisappeared":
+					issueEvent(document, "autoCompleteDisappeared", details);
+					break;
+                case "prepareAutoCompleteNumbersDone":
+					issueEvent(document, "prepareAutoCompleteNumbersDone", details);
+					break;
+                case "autoCompleteSubmitted":
+                    issueEvent(document, "autoCompleteSubmitted", details.data);
+                    break;
+
+
             }
 		});
+
+        $(document).on("autoCompleteSubmitted", function(e) {
+            systemTurn = true;
+        });
+
+        $(document).on("prepareAutoCompleteNumbersDone", function(e) {
+            autoCompleteConfirmed = true;
+
+            keyDown(27, function() { // press esc
+                issueEvent(document, "showAutoCompleteNumbers", null);
+            });
+
+            // esc
+        });
 
         $(document).on('highlightSlideObject', function(e) {
             var p = e.detail;
 
             chromeSendMessage("HIGHLIGHT_SLIDE_OBJECT", p);
+        });
+
+        $(document).on('showAutoCompleteNumbers', function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("showAutoCompleteNumbers", p);
         });
 
         $(document).on('clearPlaneCanvas', function(e) {
@@ -766,16 +1019,65 @@ $(document).ready(function() {
             chromeSendMessage("visualizeParagraph", p);
         });
 
+        $(document).on("prepareAutoCompleteNumbers", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("prepareAutoCompleteNumbers", p);
+        });
+
         $(document).on("highlightSearchResults", function(e) {
             var p = e.detail;
 
             chromeSendMessage("highlightSearchResults", p);
         });
 
+        $(document).on("autoCompleteAppeared", function(e) {
+            var p = e.detail;
+
+            autoCompleteAppeared = true;
+        });
+
+        $(document).on("autoCompleteDisappeared", function(e) {
+            var p = e.detail;
+
+            autoCompleteAppeared = false;
+        });
+
+
         $(document).on("slideKeyDown", function(e) {
                 var p = e.detail;
 
-                // console.log(p);
+                console.log(p);
+                console.log(e);
+
+                if(p.keyCode == 9) { // tab
+                    if(autoCompleteAppeared) {
+//                        keyDown(8, function() { // back space
+//                            keyDown(27, function() { // esc
+
+                                var bg = curParagraphs[0].box;
+                                var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
+                                // highlightSearchResults(paragraphText);
+
+                                console.log(selectedParagraphObj);
+
+                                var objID = $(selectedParagraphObj).attr("id").split('-')[1];
+
+                                console.log(objID);
+                                console.log(selectedParagraphNumber);
+
+                                issueEvent(document, "prepareAutoCompleteNumbers", {
+    	                            top: boundingClientRect.top + boundingClientRect.height + 20,
+                                    left: boundingClientRect.left,
+                                    width: boundingClientRect.width,
+                                    objID: objID,
+                                    paragraph: selectedParagraphNumber,
+                                    pageID: selectedPage
+    	                        });
+//                            });
+//                        });
+                    }
+                }
 
                 if(p.keyCode == 40) { // down arrow
 
@@ -789,60 +1091,13 @@ $(document).ready(function() {
                             });*/
                 }
 
-                ////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////
-                /////////// keyPress and keyDown functions /////////////
-                ////////////////////////////////////////////////////////
-                ////////////////////////////////////////////////////////
-
-                function keyPress(keyCode, myCallback) {
-                    // for putting characters
-
-                    var ee = new KeyboardEvent("keypress", {
-                        bubbles : true,
-                        cancelable : false,
-                        shiftKey : false,
-                        keyCode : keyCode
-                    });
-    
-                    console.log(keyCode);
-    
-    	    	    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
-
-                    console.log(editingIFrame);
-                    console.log(editingIFrame.contentDocument);
-                    editingIFrame.contentDocument.dispatchEvent(ee);
-                    
-                    if(myCallback != null)
-                        myCallback();
-                }
-
-                function keyDown(keyCode, myCallback) {
-                    // ESC: 27
-                    // Back space: 8
-                    // Space: 32
-    
-                    var ee = new KeyboardEvent("keydown", {
-                        bubbles : true,
-                        cancelable : false,
-                        shiftKey : false,
-                        keyCode : keyCode
-                    });
-    
-                    console.log(keyCode);
-    
-    	    	    var editingIFrame = $('iframe.docs-texteventtarget-iframe')[0];
-
-                    console.log(editingIFrame);
-                    console.log(editingIFrame.contentDocument);
-                    editingIFrame.contentDocument.dispatchEvent(ee);
-                    
-                    if(myCallback != null)
-                        myCallback();
-                }
         });
 
-
+        ////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
+        /////////// keyPress and keyDown functions /////////////
+        ////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
 
 /*
         $(document).on("keypress", function(e) {
@@ -874,7 +1129,6 @@ $(document).ready(function() {
     
     	    if (editingIFrame) {
     		    editingIFrame.contentDocument.addEventListener("keydown", hook, false);
-
     		    editingIFrame.contentDocument.addEventListener("click", clickHook, false);
     		}
 /*
@@ -891,7 +1145,7 @@ $(document).ready(function() {
             }
 
     		function hook(e){
-                // console.log(e);
+                console.log(e);
     		    var keyCode = e.keyCode;
     
                 issueEvent(document, "slideKeyDown", {
