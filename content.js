@@ -193,6 +193,7 @@ function getClickedItem(mutationsList){
     }
 
     clickedElements = temporary;
+    console.log(clickedElements);
 /*
     console.log("clicked");
     console.log($("#" + clickedElements[0]));
@@ -332,7 +333,8 @@ function updatePdfjsHighlight(mutationsList) {
 
     issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", {
             "pageId": pageId,
-            "objIdList": clickedElements
+            "objIdList": clickedElements,
+            "paragraphNumber": selectedParagraphNumber
     });
 }
 
@@ -365,7 +367,8 @@ function updateCurPageAndObjects() {
 
    	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
    	    "pageId": pageId,
-   	    "clickedElements": clickedElements
+   	    "clickedElements": clickedElements,
+        "paragraphNumber": selectedParagraphNumber
    	});
 }
 
@@ -379,7 +382,8 @@ function getIdTree(root) {
 
         if($(children).attr("id") != null) {
             childs.push({'box': $(children),
-                         'paragraphs': []
+                         'paragraphs': [],
+                         'paragraphRawText': []
                     });
         }
     }
@@ -405,7 +409,9 @@ function getParagraphStructure() {
     var idTree;
     var curPage = getPageID();
 
-    curParagraphs = getIdTree($("#editor-" + curPage));
+    var newParagraphs = getIdTree($("#editor-" + curPage));
+
+    curParagraphs = newParagraphs;
 }
 
 function clickParagraph(boxObjID, paragraphNumber) {
@@ -517,8 +523,75 @@ function getParagraphText(p) {
     return retText;
 }
 
+function findCursorPosition(cursorCoor, paragraphObj) {
+    var textTags = $(paragraphObj).find("text");
+    // console.log(textTags);
+
+    var pos = -1;
+
+    // console.log("############## cursor ##############");
+    // console.log(cursorCoor.left);
+
+    // console.log("###### FIND ###### ");
+    var accumulatedString = '';
+
+    for(var i=0;i<textTags.length;i++) {
+        var textElem = textTags[i];
+        var boundary = $(textElem)[0].getBoundingClientRect();
+
+        if(((boundary.top + boundary.bottom) / 2) < cursorCoor.top|| 
+           ((boundary.top + boundary.bottom) / 2) >= cursorCoor.top && boundary.right+1 <= cursorCoor.left) {
+            accumulatedString = accumulatedString + (i == 0 ? '' : ' ') + $(textElem).html();
+            // console.log("whole junk push : " + accumulatedString);
+        }
+        else {
+            // console.log("go one by one");
+            accumulatedString = accumulatedString + ' ';
+
+            var textElemString = $(textElem).html();
+            var lastRight = -1;
+
+            for(var j=0;j<textElemString.length;j++) {
+                $(textElem).html(textElemString.substr(0, j+1));
+                boundary = $(textElem)[0].getBoundingClientRect();
+
+                // console.log(boundary);
+                // console.log((boundary.left + boundary.right) / 2);
+
+                var midPoint = -1;
+
+                if(j == 0){
+                    // console.log(boundary.left + " " + boundary.right);
+                    midPoint = (boundary.left + boundary.right) / 2;
+                }
+                else{
+                    // console.log(lastRight + " " + boundary.right);
+                    midPoint = (lastRight + boundary.right) / 2;
+                }
+
+                if(cursorCoor.left< midPoint) {
+                    break;
+                }
+
+                accumulatedString = accumulatedString + textElemString[j];
+                lastRight = boundary.right;
+
+                // console.log(accumulatedString);
+            }
+
+            $(textElem).html(textElemString);
+
+            break;
+        }
+    }
+
+    return accumulatedString;
+}
+
 function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
+
+    // console.log("hmm?");
 
     if($(cursorDOM).length > 0) {
         if(autoCompleteConfirmed) {
@@ -528,10 +601,12 @@ function printMessage3(mutationsList) {
             issueEvent(document, "removeAutoComplete", null);
         }
 
-        var cursorLeft = $(cursorDOM).offset().left;
-        var cursorTop = $(cursorDOM).offset().top;
-        var cursorHeight = $(cursorDOM).height();
-        var cursorWidth = $(cursorDOM).width();
+        var cursorBoundary = $(cursorDOM)[0].getBoundingClientRect();
+
+        var cursorLeft = cursorBoundary.left;
+        var cursorTop = cursorBoundary.top;
+        var cursorHeight = cursorBoundary.height;
+        var cursorWidth = cursorBoundary.width;
 
         var cursorCoor  = {
             left: cursorLeft,
@@ -555,10 +630,16 @@ function printMessage3(mutationsList) {
                         flag = true;
 
                         selectedBoxID = $(box.box).attr("id").split("-")[1]; 
+
 						selectedParagraph = $("#" + pid);
                         selectedParagraphObj = paragraph;
                         selectedPage = getPageID();
                         selectedParagraphNumber = j;
+
+                        // console.log(selectedParagraph);
+
+                        var resultString = findCursorPosition(cursorCoor, selectedParagraph);
+                        console.log(resultString);
 
 						break;
                     }
@@ -572,6 +653,11 @@ function printMessage3(mutationsList) {
             issueEvent(document, "removeAutoComplete", null);
         }
 		else {
+            console.log(clickedElements);
+
+            updateCurPageAndObjects();
+            updatePdfjsHighlight(mutationsList);
+
 			var paragraphText = getParagraphText(selectedParagraph);
 
             // console.log(curParagraphs);
@@ -579,11 +665,15 @@ function printMessage3(mutationsList) {
             var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
             // highlightSearchResults(paragraphText);
 
-    	    issueEvent(document, "showAutoComplete", {
+
+    	    issueEvent(document, "checkAutoComplete", {
     	        top: boundingClientRect.top + boundingClientRect.height + 20,
                 left: boundingClientRect.left,
                 width: boundingClientRect.width,
-                words: paragraphText
+                words: paragraphText,
+                pageID: getPageID(),
+                objID: clickedElements[0].split('-')[1],
+                paragraphNumber: selectedParagraphNumber
     	    });
 		}
 
@@ -591,10 +681,21 @@ function printMessage3(mutationsList) {
 //        $("#slidePlaneCanvasPopup").css("top", cursorTop + cursorHeight);
     }
     else {
-        clearVisualizeParagraph();
+        // console.log("here!");
 
-        if(!autoCompleteConfirmed)
-            issueEvent(document, "removeAutoComplete", null);
+        cursorDOM = $(".sketchy-text-selection-overlay");
+
+        // console.log(cursorDOM);
+
+        if($(cursorDOM).length > 0) { // region
+            console.log($(cursorDOM));
+        }
+        else { // nothing
+            clearVisualizeParagraph();
+
+            if(!autoCompleteConfirmed)
+                issueEvent(document, "removeAutoComplete", null);
+        }
     }
 }
 /*
@@ -606,6 +707,9 @@ function highlightSearchResults(p) {
 
 function clearVisualizeParagraph() {
     selectedParagraph = '';
+    selectedParagraphObj = null;
+    selectedPage = null;
+    selectedParagraphNumber = null;
 
     issueEvent(document, "clearVisualizeParagraph", null);
 }
@@ -668,7 +772,6 @@ function findUpdatedSlides(mutationsList) {
         for(var j=0;j<mutationsList[i].removedNodes.length;j++) {
             if(mutationsList[i].removedNodes[j].classList.contains("sketchy-text-content-text")) {
                 target = $(mutationsList[i].target);
-                console.log($(target));
                 slideId = slideId.concat(findSlideId(target));
 
                 break;
@@ -677,7 +780,7 @@ function findUpdatedSlides(mutationsList) {
     }
 
     slideId = getUnique(slideId);
-    console.log(slideId);
+//    console.log(slideId);
 
     return slideId;
 }
@@ -717,6 +820,30 @@ function chromeSendMessage(type, data) {
 	});
 }
 
+function getNumberOfParagraphs(objId) {
+    for(var i=0;i<curParagraphs.length;i++) {
+        var oID = curParagraphs[i].box.attr("id").split('-')[1];
+
+        if(oID == objId){
+            var len = curParagraphs[i].paragraphs.length;
+
+            console.log(curParagraphs[i].paragraphs);
+
+            if(len > 1) return len;
+
+            var textLen = $(curParagraphs[i].paragraphs[0]).find("text").length;
+
+            console.log($(curParagraphs[i].paragraphs[0]).find("text"));
+            console.log($(curParagraphs[i].paragraphs[0]).find("text").length);
+
+            if(textLen > 0) return 1;
+            else return 0;
+        }
+    }
+
+    return -1;
+}
+
 $(document).ready(function() {
 	if(this.location.hostname == "localhost" && this.location.pathname == '/') { 
 		chrome.runtime.onMessage.addListener(function(details) {
@@ -746,7 +873,7 @@ $(document).ready(function() {
                 case "UPDATE_SLIDE_INFO":
                     issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
                     break;
-                case "showAutoComplete":
+                case "requestShowingAutoComplete":
                     issueEvent(document, "locateAutoComplete", details.data);
                     break;
                 case "appearAutoComplete":
@@ -773,9 +900,15 @@ $(document).ready(function() {
                 case "autoCompleteRegister":
                     issueEvent(document, "autoCompleteRegister", details.data);
                     break;
+                case "checkAutoComplete":
+                    issueEvent(document, "checkAutoComplete", details.data);
+                    break;
             }
 		});
 
+        $(document).on("__removeAutoComplete", function(e) {
+            chromeSendMessage("removeAutoComplete", e.detail);
+        });
         $(document).on("PDFJS_HIGHLIGHT_TEXT", function(e) {
             chromeSendMessage("PDFJS_HIGHLIGHT_TEXT", e.detail);
         });
@@ -790,6 +923,10 @@ $(document).ready(function() {
 
         $(document).on("autoCompleteCancelled", function(e) {
             chromeSendMessage("autoCompleteCancelled", e.detail);
+        });
+
+        $(document).on("requestShowingAutoComplete", function(e) {
+            chromeSendMessage("requestShowingAutoComplete", e.detail);
         });
 
 		$(document).on("prepareAutoCompleteNumbersDone", function(e) {
@@ -809,7 +946,7 @@ $(document).ready(function() {
                 case "PDFJS_REMOVE_HIGHLIGHT":
                     issueEvent(document, "PDFJS_REMOVE_HIGHLIGHT", details);
                     break;
-                case "showAutoComplete":
+                case "requestShowingAutoComplete":
                     issueEvent(document, "highlightSearchResults", details);
                     break;
                 case "removeAutoComplete":
@@ -892,16 +1029,22 @@ $(document).ready(function() {
 		chrome.runtime.onMessage.addListener(function(details) {
             switch(details.type) {
                 case "ADDTEXT_GETOBJ":
+
                 if(clickedElements.length > 0) {
                     for(var i=0;i<clickedElements.length;i++) {
+
+                        var objId = clickedElements[i].substr(7);
+
                         console.log(details.data);
+                        console.log(objId);
 
                         chromeSendMessage("ADDTEXT_SENDTEXT", {
                            "text": details.data.text,
                            "pageNumber": details.data.pageNumber,
+                           "paragraphNumber": getNumberOfParagraphs(objId),
                            "startIndex": details.data.startIndex,
                            "endIndex": details.data.endIndex,
-                           "objId": clickedElements[i].substr(7),
+                           "objId": objId,
                            "color": details.data.color,
                            "pageId": null
                                 });
@@ -913,6 +1056,7 @@ $(document).ready(function() {
                        "pageNumber": details.data.pageNumber,
                        "startIndex": details.data.startIndex,
                        "endIndex": details.data.endIndex,
+                       "paragraphNumber": 0,
                        "objId": null,
                        "color": details.data.color,
                        "pageId": getPageID()
@@ -940,6 +1084,12 @@ $(document).ready(function() {
 
             }
 		});
+
+        $(document).on("checkAutoComplete", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("checkAutoComplete", p);
+        });
 
         $(document).on("autoCompleteSubmitted", function(e) {
             systemTurn = true;
@@ -1047,8 +1197,8 @@ $(document).ready(function() {
         $(document).on("slideKeyDown", function(e) {
                 var p = e.detail;
 
-                console.log(p);
-                console.log(e);
+                // console.log(p);
+                // console.log(e);
 
                 if(p.keyCode == 9) { // tab
                     if(autoCompleteAppeared) {
@@ -1145,7 +1295,7 @@ $(document).ready(function() {
             }
 
     		function hook(e){
-                console.log(e);
+                // console.log(e);
     		    var keyCode = e.keyCode;
     
                 issueEvent(document, "slideKeyDown", {
