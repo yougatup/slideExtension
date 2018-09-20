@@ -15,16 +15,21 @@ var clickedElements = [];
 var curParagraphs = [];
 var curPageID = '';
 
+var paragraphIdentifiers = null;
+
 var selectedBoxID = null;
 var selectedParagraph = '';
 var selectedParagraphObj = null;
 var selectedParagraphNumber = null;
+var selectedParagraphIdentifier = null;
 var selectedPage = null;
 
 var clickEvent;
 var autoCompleteAppeared = false;
 var autoCompleteConfirmed = false;
 
+var paragraphIdSnapshot = null;
+var systemTurnBox = null;
 var systemTurn = false;
 
 var systemMouseDown = false;
@@ -34,6 +39,9 @@ var systemMouseCoorInfo = {
     clientX: null,
     clientY: null
 };
+
+var addedParagraphDetected = false;
+var removedParagraphDetected = false;
 
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
@@ -193,7 +201,7 @@ function getClickedItem(mutationsList){
     }
 
     clickedElements = temporary;
-    console.log(clickedElements);
+    // console.log(clickedElements);
 /*
     console.log("clicked");
     console.log($("#" + clickedElements[0]));
@@ -213,6 +221,33 @@ function getClickedItem(mutationsList){
     if(systemMouseDown) {
         console.log("system mouse up");
         document.elementFromPoint(systemMouseCoorInfo.clientX, systemMouseCoorInfo.clientY).dispatchEvent(new MouseEvent('mouseup', {bubbles: true, screenX: systemMouseCoorInfo.systemX, screenY: systemMouseCoorInfo.systemY, clientX: systemMouseCoorInfo.clientX, clientY: systemMouseCoorInfo.clientY}));
+
+
+        // paragraphIdentifiers = paragraphIdSnapshot;
+
+        paragraphIdentifiers = $.extend(true, {}, paragraphIdSnapshot); // hard copy
+
+        curParagraphs = getParagraphStructure();
+        console.log(systemTurnBox);
+
+        var myParagraph = getParagraphs(curParagraphs, systemTurnBox);
+
+        if(myParagraph.length == paragraphIdentifiers[systemTurnBox].length + 1) {
+            paragraphIdentifiers[systemTurnBox].push(createObjId());
+        }
+        else if(myParagraph.length != paragraphIdentifiers[systemTurnBox].length) {
+            console.log("########## HEY TAKE A LOOK ########### " + myParagraph.length + " " + paragraphIdentifiers[systemTurnBox].length);
+            console.log($.extend(true, {}, paragraphIdSnapshot));
+            console.log(myParagraph);
+        }
+
+        // paragraphIdentifiers is a snapshot before system's turn.
+        // Current status of bullets could be different. --> Only bullets are added after this transaction.
+
+        clickedElements = temporary;
+       
+        console.log("********** ATOMIC ENDS **********");
+        console.log(paragraphIdentifiers);
 
         systemMouseDown = false;
         systemTurn = false;
@@ -334,7 +369,7 @@ function updatePdfjsHighlight(mutationsList) {
     issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", {
             "pageId": pageId,
             "objIdList": clickedElements,
-            "paragraphNumber": selectedParagraphNumber
+            "paragraphIdentifier": selectedParagraphIdentifier
     });
 }
 
@@ -368,7 +403,8 @@ function updateCurPageAndObjects() {
    	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
    	    "pageId": pageId,
    	    "clickedElements": clickedElements,
-        "paragraphNumber": selectedParagraphNumber
+        "paragraphNumber": selectedParagraphNumber,
+        "paragraphIdentifier": selectedParagraphIdentifier
    	});
 }
 
@@ -383,7 +419,6 @@ function getIdTree(root) {
         if($(children).attr("id") != null) {
             childs.push({'box': $(children),
                          'paragraphs': [],
-                         'paragraphRawText': []
                     });
         }
     }
@@ -391,7 +426,7 @@ function getIdTree(root) {
     for(var j=0;j<childs.length;j++) {
         var rootID = $(childs[j]["box"]).attr("id");
 
-        for(var k=0;k<10;k++) {
+        for(var k=0;k<100;k++) {
             var elem = $("#" + rootID + "-paragraph-" + k);
 
             if($(elem).length <= 0) break;
@@ -409,9 +444,7 @@ function getParagraphStructure() {
     var idTree;
     var curPage = getPageID();
 
-    var newParagraphs = getIdTree($("#editor-" + curPage));
-
-    curParagraphs = newParagraphs;
+    return getIdTree($("#editor-" + curPage));
 }
 
 function clickParagraph(boxObjID, paragraphNumber) {
@@ -421,6 +454,9 @@ function clickParagraph(boxObjID, paragraphNumber) {
         var objId = $(curParagraphs[i].box).attr("id").split("-")[1];
 
         if(objId == boxObjID) {
+            console.log(curParagraphs[i]);
+            console.log(paragraphNumber);
+
             var paragraphObj = curParagraphs[i].paragraphs[paragraphNumber];
             var boundary = $(paragraphObj)[0].getBoundingClientRect();
 
@@ -436,27 +472,156 @@ function clickParagraph(boxObjID, paragraphNumber) {
             systemMouseCoorInfo.clientX = boundary.left + boundary.width;
             systemMouseCoorInfo.clientY = boundary.top + boundary.height;
 
+            console.log(systemMouseCoorInfo);
+
             clickSystemMouse();
 
             break;
         }
     }
 
-    console.log(curParagraphs);
-    console.log(boxObjID);
-    console.log($("#editor-" + boxObjID));
-    console.log(paragraphNumber);
+    // console.log(curParagraphs);
+    // console.log(boxObjID);
+    // console.log($("#editor-" + boxObjID));
+    // console.log(paragraphNumber);
 }
 
-function printMessage2(mutationsList) {
-    getParagraphStructure();
+function getParagraphs(pageObj, boxID) {
+    // console.log(pageObj);
+    // console.log(boxID);
+
+    for(var i=0;i<pageObj.length;i++) {
+        var bID = $(pageObj[i].box).attr("id").split('-')[1];
+
+        if(bID == boxID) {
+            return $(pageObj[i].paragraphs);
+        }
+    }
+
+    return null;
+}
+
+function createObjId() {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for (var i = 0; i < 10; i++)
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+}
+
+function storeMapping(objId, paragraphNumber, paragraphId) {
+    // console.log("STORE MAPPING");
+
+    // console.log(objId + ' ' + paragraphNumber + ' ' + paragraphId);
+
+    issueEvent(document, "sendParagraphMappingData", {
+        objId: objId,
+        paragraphNumber: paragraphNumber,
+        paragraphId: paragraphId
+    });
+}
+
+function process(mutationsList) {
+    var newParagraphs = getParagraphStructure();
+
     getClickedItem(mutationsList);
+
+    if(clickedElements.length == 1) {
+        // console.log(curParagraphs);
+        // console.log(newParagraphs);
+
+        var clickedElemID = clickedElements[0].split('-')[1];
+
+        originalParagraph = getParagraphs(curParagraphs, clickedElemID);
+        newParagraph = getParagraphs(newParagraphs, clickedElemID);
+
+        var newParagraphIdentifiers = [];
+
+        // console.log(originalParagraph);
+        // console.log(newParagraph);
+
+        for(var i=0;i<newParagraph.length;i++) {
+            if(!(i < originalParagraph.length && newParagraph[i].is(originalParagraph[i]))) {
+                var flag = false;
+
+                if(originalParagraph != null) {
+                    for(var j=0;j<originalParagraph.length;j++) {
+                        if(newParagraph[i].is(originalParagraph[j])) {
+                            flag = true;
+
+                            // console.log("here 1");
+                            storeMapping(clickedElemID, i, paragraphIdentifiers[clickedElemID][j]);
+                            newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][j]);
+                            break;
+                        }
+                    }
+                }
+
+                if(!flag) {
+                    var paragraphId = createObjId();
+
+                    if(systemTurn == false) {
+                        // console.log("here 2");
+
+                        storeMapping(clickedElemID, i, paragraphId);
+                        newParagraphIdentifiers.push(createObjId());
+                    }
+                    else {
+                        // console.log("really?");
+                        newParagraphIdentifiers.push(paragraphIdSnapshot[clickedElemID][j]);
+
+                        // console.log(paragraphIdSnapshot);
+                        // console.log(j);
+                    }
+                }
+            }
+            else{
+                if(paragraphIdentifiers[clickedElemID] == null){ // the first registration
+                    var paragraphId = createObjId();
+
+                            // console.log("here 3");
+                    storeMapping(clickedElemID, i, paragraphId);
+
+                    newParagraphIdentifiers.push(paragraphId);
+                }
+                else{
+                    newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][i]);
+                }
+            }
+        }
+
+        // console.log(originalParagraph);
+        // console.log(newParagraph);
+
+        paragraphIdentifiers[clickedElemID] = newParagraphIdentifiers;
+
+        // console.log(paragraphIdentifiers);
+    }
+
+    curParagraphs = newParagraphs;
+
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
 
     if(systemTurn && !systemMouseDown) {
         clickParagraph(selectedBoxID, selectedParagraphNumber);
     }
+
+    // console.log("printMessage2 end!");
+}
+
+function printMessage2(mutationsList) {
+    // console.log("printMessage2 called!");
+    // console.log(mutationsList);
+
+    // console.log(paragraphIdentifiers);
+
+    if(paragraphIdentifiers == null) {
+        issueEvent(document, "getParagraphMapping", null);
+    }
+    else process(mutationsList);
 }
 
 function clickSystemMouse() {
@@ -591,6 +756,7 @@ function findCursorPosition(cursorCoor, paragraphObj) {
 function printMessage3(mutationsList) {
     var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
 
+    // console.log("printMessage3 called!");
     // console.log("hmm?");
 
     if($(cursorDOM).length > 0) {
@@ -635,11 +801,13 @@ function printMessage3(mutationsList) {
                         selectedParagraphObj = paragraph;
                         selectedPage = getPageID();
                         selectedParagraphNumber = j;
+                        selectedParagraphIdentifier = paragraphIdentifiers[selectedBoxID][j];
 
-                        // console.log(selectedParagraph);
+                        // console.log(selectedParagraphIdentifier);
+                        // console.log(document.getElementById(pid).getBoundingClientRect());
 
-                        var resultString = findCursorPosition(cursorCoor, selectedParagraph);
-                        console.log(resultString);
+                        // var resultString = findCursorPosition(cursorCoor, selectedParagraph);
+                        // console.log(resultString);
 
 						break;
                     }
@@ -653,7 +821,7 @@ function printMessage3(mutationsList) {
             issueEvent(document, "removeAutoComplete", null);
         }
 		else {
-            console.log(clickedElements);
+            // console.log(clickedElements);
 
             updateCurPageAndObjects();
             updatePdfjsHighlight(mutationsList);
@@ -673,7 +841,8 @@ function printMessage3(mutationsList) {
                 words: paragraphText,
                 pageID: getPageID(),
                 objID: clickedElements[0].split('-')[1],
-                paragraphNumber: selectedParagraphNumber
+                paragraphNumber: selectedParagraphNumber,
+                paragraphIdentifier: selectedParagraphIdentifier
     	    });
 		}
 
@@ -688,7 +857,7 @@ function printMessage3(mutationsList) {
         // console.log(cursorDOM);
 
         if($(cursorDOM).length > 0) { // region
-            console.log($(cursorDOM));
+            // console.log($(cursorDOM));
         }
         else { // nothing
             clearVisualizeParagraph();
@@ -697,6 +866,8 @@ function printMessage3(mutationsList) {
                 issueEvent(document, "removeAutoComplete", null);
         }
     }
+
+    // console.log("printMessage3 end!");
 }
 /*
 function highlightSearchResults(p) {
@@ -709,7 +880,7 @@ function clearVisualizeParagraph() {
     selectedParagraph = '';
     selectedParagraphObj = null;
     selectedPage = null;
-    selectedParagraphNumber = null;
+    // selectedParagraphNumber = null;
 
     issueEvent(document, "clearVisualizeParagraph", null);
 }
@@ -903,12 +1074,24 @@ $(document).ready(function() {
                 case "checkAutoComplete":
                     issueEvent(document, "checkAutoComplete", details.data);
                     break;
+                case "getParagraphMapping":
+                    issueEvent(document, "getParagraphMapping", details.data);
+                    break;
+                case "sendParagraphMappingData":
+                //     console.log("SEND PARAGRAPH MAPPING DATA ------------ ");
+                    issueEvent(document, "sendParagraphMappingData", details.data);
+                    break;
+                    /*
+                case "dataLoadedACK":
+                    issueEvent(document, "dataLoadedACK", details.data);
+                    break;*/
             }
 		});
 
-        $(document).on("__removeAutoComplete", function(e) {
-            chromeSendMessage("removeAutoComplete", e.detail);
+        $(document).on("paragraphMappingData", function(e) {
+            chromeSendMessage("paragraphMappingData", e.detail);
         });
+
         $(document).on("PDFJS_HIGHLIGHT_TEXT", function(e) {
             chromeSendMessage("PDFJS_HIGHLIGHT_TEXT", e.detail);
         });
@@ -929,11 +1112,21 @@ $(document).ready(function() {
             chromeSendMessage("requestShowingAutoComplete", e.detail);
         });
 
+        $(document).on("__dataLoaded", function(e) {
+                console.log("YE, I'm Serious");
+            var p = e.detail;
+
+            console.log("SEND DATA LOADED");
+
+            chromeSendMessage("__dataLoaded", p);
+        });
+
 		$(document).on("prepareAutoCompleteNumbersDone", function(e) {
             var p = e.detail;
 
             chromeSendMessage("prepareAutoCompleteNumbersDone", p);
 		});
+
 	}
     
     // pdf.js contents script
@@ -989,10 +1182,10 @@ $(document).ready(function() {
             chromeSendMessage("SEND_IMAGE", p);
         });
 
-        $(document).on("autoCompleteRegister", function(e) {
+        $(document).on("prepareSnapshotForAutoComplete", function(e) {
             var p = e.detail;
 
-            chromeSendMessage("autoCompleteRegister", p);
+            chromeSendMessage("prepareSnapshotForAutoComplete", p);
         });
 
         $(document).on("appearAutoComplete", function(e) {
@@ -1041,7 +1234,7 @@ $(document).ready(function() {
                         chromeSendMessage("ADDTEXT_SENDTEXT", {
                            "text": details.data.text,
                            "pageNumber": details.data.pageNumber,
-                           "paragraphNumber": getNumberOfParagraphs(objId),
+                           "paragraphIdentifier": createObjId(),
                            "startIndex": details.data.startIndex,
                            "endIndex": details.data.endIndex,
                            "objId": objId,
@@ -1056,7 +1249,7 @@ $(document).ready(function() {
                        "pageNumber": details.data.pageNumber,
                        "startIndex": details.data.startIndex,
                        "endIndex": details.data.endIndex,
-                       "paragraphNumber": 0,
+                       "paragraphIdentifier": createObjId(),
                        "objId": null,
                        "color": details.data.color,
                        "pageId": getPageID()
@@ -1080,10 +1273,78 @@ $(document).ready(function() {
                 case "autoCompleteSubmitted":
                     issueEvent(document, "autoCompleteSubmitted", details.data);
                     break;
-
-
+                case "paragraphMappingData":
+                    issueEvent(document, "paragraphMappingData", details.data);
+                    break;
+                case "prepareSnapshotForAutoComplete":
+                    issueEvent(document, "prepareSnapshotForAutoComplete", details.data);
+                    break;
+                case "__dataLoaded":
+                    console.log("RECEIVED DATA LOADED");
+                    issueEvent(document, "__dataLoaded", details.data);
+                    break;
             }
 		});
+
+        $(document).on("paragraphMappingData", function(e) {
+            var p = e.detail;
+
+                // console.log("PROCESS!");
+
+                paragraphIdentifiers = p.paragraphMapping;
+                // console.log(paragraphIdentifiers);
+                
+                // process(p.mutationsList);
+                });
+
+        $(document).on("prepareSnapshotForAutoComplete", function(e) {
+            var p = e.detail;
+
+            systemTurn = true;
+            systemTurnBox = selectedBoxID;
+
+            console.log("********** SNAPSHOT **********");
+            console.log(paragraphIdentifiers);
+
+            paragraphIdSnapshot = $.extend(true, {}, paragraphIdentifiers); // hard copy
+
+            issueEvent(document, "autoCompleteRegister", p);
+        });
+
+        $(document).on("autoCompleteRegister", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("autoCompleteRegister", p);
+        });
+
+        $(document).on("getParagraphMapping", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("getParagraphMapping", p);
+        });
+
+        $(document).on("sendParagraphMappingData", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("sendParagraphMappingData", p);
+        });
+
+        $(document).on("__dataLoaded", function(e) {
+            var p = e.detail;
+
+            paragraphIdentifier = p.paragraphTable;
+
+            console.log(paragraphIdentifier);
+
+            // issueEvent(document, "dataLoadedACK", null);
+        });
+
+        /*
+        $(document).on("dataLoadedACK", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("dataLoadedACK", p);
+        });*/
 
         $(document).on("checkAutoComplete", function(e) {
             var p = e.detail;
@@ -1092,7 +1353,7 @@ $(document).ready(function() {
         });
 
         $(document).on("autoCompleteSubmitted", function(e) {
-            systemTurn = true;
+            console.log(paragraphIdentifiers);
         });
 
         $(document).on("prepareAutoCompleteNumbersDone", function(e) {
@@ -1222,6 +1483,7 @@ $(document).ready(function() {
                                     width: boundingClientRect.width,
                                     objID: objID,
                                     paragraph: selectedParagraphNumber,
+                                    paragraphIdentifier: selectedParagraphIdentifier,
                                     pageID: selectedPage
     	                        });
 //                            });
