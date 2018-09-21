@@ -223,9 +223,9 @@ function getClickedItem(mutationsList){
         document.elementFromPoint(systemMouseCoorInfo.clientX, systemMouseCoorInfo.clientY).dispatchEvent(new MouseEvent('mouseup', {bubbles: true, screenX: systemMouseCoorInfo.systemX, screenY: systemMouseCoorInfo.systemY, clientX: systemMouseCoorInfo.clientX, clientY: systemMouseCoorInfo.clientY}));
 
 
-        // paragraphIdentifiers = paragraphIdSnapshot;
+        paragraphIdentifiers = paragraphIdSnapshot;
 
-        paragraphIdentifiers = $.extend(true, {}, paragraphIdSnapshot); // hard copy
+        // paragraphIdentifiers = $.extend(true, {}, paragraphIdSnapshot); // hard copy
 
         curParagraphs = getParagraphStructure();
         console.log(systemTurnBox);
@@ -233,7 +233,12 @@ function getClickedItem(mutationsList){
         var myParagraph = getParagraphs(curParagraphs, systemTurnBox);
 
         if(myParagraph.length == paragraphIdentifiers[systemTurnBox].length + 1) {
-            paragraphIdentifiers[systemTurnBox].push(createObjId());
+            var objID = createObjId();
+
+            paragraphIdentifiers[systemTurnBox].push(objID);
+            storeMapping(systemTurnBox, myParagraph.length-1, objID);
+
+            console.log("******** OBJECT ADDED : " + objID);
         }
         else if(myParagraph.length != paragraphIdentifiers[systemTurnBox].length) {
             console.log("########## HEY TAKE A LOOK ########### " + myParagraph.length + " " + paragraphIdentifiers[systemTurnBox].length);
@@ -265,6 +270,15 @@ function getClickedItem(mutationsList){
                 });
 //                        keyDown(8, function() { // back space
     }
+}
+
+function removeHighlight(mappingIdentifiers, lastElemIndex) {
+    issueEvent(document, "removeHighlight", {
+            pageID: getPageID(),
+            mappingIdentifiers: mappingIdentifiers,
+            boxID: selectedBoxID,
+            lastElemIndex: lastElemIndex
+    });
 }
 
 function keyUp(keyCode, myCallback) {
@@ -528,79 +542,141 @@ function process(mutationsList) {
 
     getClickedItem(mutationsList);
 
-    if(clickedElements.length == 1) {
-        // console.log(curParagraphs);
-        // console.log(newParagraphs);
+    if(!systemTurn) {
+        if(clickedElements.length == 1) {
+            // console.log(curParagraphs);
+            // console.log(newParagraphs);
 
-        var clickedElemID = clickedElements[0].split('-')[1];
+            var clickedElemID = clickedElements[0].split('-')[1];
 
-        originalParagraph = getParagraphs(curParagraphs, clickedElemID);
-        newParagraph = getParagraphs(newParagraphs, clickedElemID);
+            // console.log("old");
+            // console.log(paragraphIdentifiers[clickedElemID]);
 
-        var newParagraphIdentifiers = [];
+            originalParagraph = getParagraphs(curParagraphs, clickedElemID);
+            newParagraph = getParagraphs(newParagraphs, clickedElemID);
 
-        // console.log(originalParagraph);
-        // console.log(newParagraph);
+            var myFlag = false;
 
-        for(var i=0;i<newParagraph.length;i++) {
-            if(!(i < originalParagraph.length && newParagraph[i].is(originalParagraph[i]))) {
-                var flag = false;
+            for(var i=0;i<newParagraph.length;i++) {
+                var cnt = 0;
 
-                if(originalParagraph != null) {
-                    for(var j=0;j<originalParagraph.length;j++) {
-                        if(newParagraph[i].is(originalParagraph[j])) {
-                            flag = true;
+                for(var j=0;j<newParagraph.length;j++) {
+                    if(newParagraph[j][0].id == newParagraph[i][0].id)
+                        cnt++;
+                }
 
-                            // console.log("here 1");
-                            storeMapping(clickedElemID, i, paragraphIdentifiers[clickedElemID][j]);
-                            newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][j]);
-                            break;
+                if(cnt >= 2) {
+                    myFlag = true;
+                    break;
+                }
+            }
+
+            if(!myFlag) {
+                var newParagraphIdentifiers = [];
+
+                console.log(originalParagraph);
+                console.log(newParagraph);
+
+                for(var k=0;k<newParagraph.length;k++) console.log(newParagraph[k][0].id);
+                console.log('\n');
+
+                for(var k=0;k<originalParagraph.length;k++) console.log(originalParagraph[k][0].id);
+                console.log('\n');
+
+                for(var i=0;i<newParagraph.length;i++) {
+                    // if(!(i < originalParagraph.length && newParagraph[i][0].id == originalParagraph[i][0].id)) { }
+                    if(!(i < originalParagraph.length && $(newParagraph[i]).is($(originalParagraph[i])) )) {
+                        var flag = false;
+
+                        if(originalParagraph != null) {
+                            for(var j=originalParagraph.length-1;j>=0;j--){
+
+                                if($(newParagraph[i]).is($(originalParagraph[j]))){
+                                    // if(newParagraph[i][0].id == originalParagraph[j][0].id) { }
+                                    flag = true;
+
+                                    console.log("here 1" + " " + i + " " + j);
+                                    storeMapping(clickedElemID, i, paragraphIdentifiers[clickedElemID][j]);
+                                    newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][j]);
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(!flag) { // i-th element was added 
+                            var paragraphId = createObjId();
+
+                            if(systemTurn == false) {
+                                console.log("here 2" + " " + i + " " + j);
+
+                                storeMapping(clickedElemID, i, paragraphId);
+                                newParagraphIdentifiers.push(paragraphId);
+                            }
+                            else {
+                                console.log("really?" + " " + i + " " + j);
+                                // newParagraphIdentifiers.push(paragraphIdSnapshot[clickedElemID][j]);
+                                newParagraphIdentifiers.push(createObjId());
+                            }
+                        }
+
+                    }
+                    else{
+                        if(paragraphIdentifiers[clickedElemID] == null){ // the first registration
+                            var paragraphId = createObjId();
+
+                            console.log("here 3" + " " + i + " " + j);
+                            storeMapping(clickedElemID, i, paragraphId);
+
+                            newParagraphIdentifiers.push(paragraphId);
+                        }
+                        else{
+                            console.log("here 4" + " " + i + " " + j);
+
+                            newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][i]);
                         }
                     }
                 }
 
-                if(!flag) {
-                    var paragraphId = createObjId();
+                /*for(var i=0;i<originalParagarphMatched.length;i++) {
+                  conso
+                  }*/
 
-                    if(systemTurn == false) {
-                        // console.log("here 2");
+                // console.log(originalParagraph);
+                // console.log(newParagraph);
 
-                        storeMapping(clickedElemID, i, paragraphId);
-                        newParagraphIdentifiers.push(createObjId());
-                    }
-                    else {
-                        // console.log("really?");
-                        newParagraphIdentifiers.push(paragraphIdSnapshot[clickedElemID][j]);
+                if(!systemTurn) {
+                    var addedMapping, removedMapping;
 
-                        // console.log(paragraphIdSnapshot);
-                        // console.log(j);
-                    }
+                    console.log("OLD and NEW");
+                    console.log(paragraphIdentifiers[clickedElemID]);
+                    console.log(newParagraphIdentifiers);
+
+                    addedMapping = getDifference(newParagraphIdentifiers, paragraphIdentifiers[clickedElemID]);
+                    removedMapping = getDifference(paragraphIdentifiers[clickedElemID], newParagraphIdentifiers);
+
+                    console.log("ADDED MAPPING");
+                    console.log(addedMapping);
+
+                    console.log("REMOVED MAPPING");
+                    console.log(removedMapping);
+
+                    removeHighlight(removedMapping, newParagraphIdentifiers.length);
                 }
-            }
-            else{
-                if(paragraphIdentifiers[clickedElemID] == null){ // the first registration
-                    var paragraphId = createObjId();
 
-                            // console.log("here 3");
-                    storeMapping(clickedElemID, i, paragraphId);
+                paragraphIdentifiers[clickedElemID] = newParagraphIdentifiers;
 
-                    newParagraphIdentifiers.push(paragraphId);
-                }
-                else{
-                    newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][i]);
-                }
+                console.log("new");
+                console.log(paragraphIdentifiers[clickedElemID]);
+
+                // console.log(paragraphIdentifiers);
+                curParagraphs = newParagraphs;
             }
         }
-
-        // console.log(originalParagraph);
-        // console.log(newParagraph);
-
-        paragraphIdentifiers[clickedElemID] = newParagraphIdentifiers;
-
-        // console.log(paragraphIdentifiers);
+        else {
+            curParagraphs = newParagraphs;
+        }
     }
-
-    curParagraphs = newParagraphs;
 
     updateCurPageAndObjects();
     updatePdfjsHighlight(mutationsList);
@@ -610,6 +686,29 @@ function process(mutationsList) {
     }
 
     // console.log("printMessage2 end!");
+}
+
+function getDifference(a, b) {
+    var retValue = [];
+
+    if(a == null) return [];
+
+    for(var i=0;i<a.length;i++) {
+        var flag = false;
+
+        if(b != null) {
+            for(var j=0;j<b.length;j++) {
+                if(a[i] == b[j]) {
+                    flag = true;
+                    break;
+                }
+            }
+        }
+
+        if(!flag) retValue.push(a[i]);
+    }
+
+    return retValue;
 }
 
 function printMessage2(mutationsList) {
@@ -1077,6 +1176,9 @@ $(document).ready(function() {
                 case "getParagraphMapping":
                     issueEvent(document, "getParagraphMapping", details.data);
                     break;
+                case "removeHighlight":
+                    issueEvent(document, "removeHighlight", details.data);
+                    break;
                 case "sendParagraphMappingData":
                 //     console.log("SEND PARAGRAPH MAPPING DATA ------------ ");
                     issueEvent(document, "sendParagraphMappingData", details.data);
@@ -1292,7 +1394,7 @@ $(document).ready(function() {
                 // console.log("PROCESS!");
 
                 paragraphIdentifiers = p.paragraphMapping;
-                // console.log(paragraphIdentifiers);
+                console.log(paragraphIdentifiers);
                 
                 // process(p.mutationsList);
                 });
@@ -1309,6 +1411,12 @@ $(document).ready(function() {
             paragraphIdSnapshot = $.extend(true, {}, paragraphIdentifiers); // hard copy
 
             issueEvent(document, "autoCompleteRegister", p);
+        });
+
+        $(document).on("removeHighlight", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("removeHighlight", p);
         });
 
         $(document).on("autoCompleteRegister", function(e) {
