@@ -43,6 +43,9 @@ var systemMouseCoorInfo = {
 var addedParagraphDetected = false;
 var removedParagraphDetected = false;
 
+var textAddedParagraphIdentifier;
+var systemTurnTextAdded = false;
+
 function issueEvent(object, eventName, data) {
  	var myEvent = new CustomEvent(eventName, {detail: data} );
  
@@ -607,16 +610,22 @@ function process(mutationsList) {
                         if(!flag) { // i-th element was added 
                             var paragraphId = createObjId();
 
-                            if(systemTurn == false) {
-                                console.log("here 2" + " " + i + " " + j);
-
-                                storeMapping(clickedElemID, i, paragraphId);
-                                newParagraphIdentifiers.push(paragraphId);
+                            if(systemTurnTextAdded) {
+                                newParagraphIdentifiers.push(textAddedParagraphIdentifier);
+                                systemTurnTextAdded = false;
                             }
                             else {
-                                console.log("really?" + " " + i + " " + j);
-                                // newParagraphIdentifiers.push(paragraphIdSnapshot[clickedElemID][j]);
-                                newParagraphIdentifiers.push(createObjId());
+                                if(systemTurn == false) {
+                                    console.log("here 2" + " " + i + " " + j);
+
+                                    storeMapping(clickedElemID, i, paragraphId);
+                                    newParagraphIdentifiers.push(paragraphId);
+                                }
+                                else {
+                                    console.log("really?" + " " + i + " " + j);
+                                    // newParagraphIdentifiers.push(paragraphIdSnapshot[clickedElemID][j]);
+                                    newParagraphIdentifiers.push(createObjId());
+                                }
                             }
                         }
 
@@ -1190,6 +1199,10 @@ $(document).ready(function() {
             }
 		});
 
+        $(document).on("TEXT_ADD_COMPLETE", function(e) {
+            chromeSendMessage("TEXT_ADD_COMPLETE", e.detail);
+                });
+
         $(document).on("paragraphMappingData", function(e) {
             chromeSendMessage("paragraphMappingData", e.detail);
         });
@@ -1329,39 +1342,72 @@ $(document).ready(function() {
                     for(var i=0;i<clickedElements.length;i++) {
 
                         var objId = clickedElements[i].substr(7);
+                        var paragraph = getParagraphs(curParagraphs, objId);
+                        var paragraphId;
 
                         console.log(details.data);
                         console.log(objId);
+                        console.log(paragraph[0]);
+                        console.log(paragraphId);
+                        console.log(selectedParagraphIdentifier);
+                        console.log(paragraphIdentifiers[objId]);
+                        console.log($(paragraph[0]).find("text"));
+
+                        if(paragraph.length == 1 && $(paragraph[0]).find("text").length == 0) { // empty
+                            console.log("here, empty");
+                            paragraphId = paragraphIdentifiers[objId][0];
+
+                            storeMapping(objId, 0, paragraphId);
+                        }
+                        else {
+                            console.log("here, not empty");
+                            paragraphId = createObjId();
+                            storeMapping(objId, paragraph.length, paragraphId);
+                        }
+
+                        console.log(paragraphId);
 
                         chromeSendMessage("ADDTEXT_SENDTEXT", {
                            "text": details.data.text,
                            "pageNumber": details.data.pageNumber,
-                           "paragraphIdentifier": createObjId(),
+                           "paragraphIdentifier": paragraphId,
                            "startIndex": details.data.startIndex,
                            "endIndex": details.data.endIndex,
                            "objId": objId,
                            "color": details.data.color,
                            "pageId": null
                                 });
+
+                        systemTurnTextAdded = true;
+                        textAddedParagraphIdentifier = paragraphId;
                     }
                 }
                 else {
+                    var paragraphId = createObjId();
+                    storeMapping(objId, 0, paragraphId);
+
                     chromeSendMessage("ADDTEXT_SENDTEXT", {
                        "text": details.data.text,
                        "pageNumber": details.data.pageNumber,
                        "startIndex": details.data.startIndex,
                        "endIndex": details.data.endIndex,
-                       "paragraphIdentifier": createObjId(),
+                       "paragraphIdentifier": paragraphId,
                        "objId": null,
                        "color": details.data.color,
                        "pageId": getPageID()
                     });
+
+                    systemTurnTextAdded = true;
+                    textAddedParagraphIdentifier = paragraphId;
                 }
                     
                 break;
 
 				case "GET_SLIDE_OBJECT_FOR_HIGHLIGHT":
 					issueEvent(document, "getSlideObjectForHighlight", details);
+					break;
+				case "TEXT_ADD_COMPLETE":
+					issueEvent(document, "TEXT_ADD_COMPLETE", details);
 					break;
                 case "autoCompleteAppeared":
 					issueEvent(document, "autoCompleteAppeared", details);
@@ -1387,6 +1433,11 @@ $(document).ready(function() {
                     break;
             }
 		});
+
+        /*
+        $(document).on("TEXT_ADD_COMPLETE", function(e) {
+                systemTurnTextAdded = false;
+        });*/
 
         $(document).on("paragraphMappingData", function(e) {
             var p = e.detail;
