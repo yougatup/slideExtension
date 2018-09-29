@@ -543,11 +543,9 @@ function storeMapping(objId, paragraphNumber, paragraphId) {
 function process(mutationsList) {
     var newParagraphs = getParagraphStructure();
 
-    if(curParagraphs == null) curParagraphs = newParagraph;
+    if(curParagraphs == null) curParagraphs = newParagraphs;
 
     getClickedItem(mutationsList);
-
-    console.log(newParagraphs);
 
     if(!systemTurn) {
         if(clickedElements.length == 1) {
@@ -558,6 +556,10 @@ function process(mutationsList) {
 
             // console.log("old");
             // console.log(paragraphIdentifiers[clickedElemID]);
+	    //
+	    //
+    	console.log(newParagraphs);
+    	console.log(paragraphIdentifiers[clickedElemID]);
 
             originalParagraph = getParagraphs(curParagraphs, clickedElemID);
             newParagraph = getParagraphs(newParagraphs, clickedElemID);
