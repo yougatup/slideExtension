@@ -12,7 +12,7 @@ var mutationConfig;
 var observer;
 
 var clickedElements = [];
-var curParagraphs = [];
+var curParagraphs = null;
 var curPageID = '';
 
 var paragraphIdentifiers = null;
@@ -558,6 +558,7 @@ function process(mutationsList) {
             // console.log(paragraphIdentifiers[clickedElemID]);
 	    //
 	    //
+    	console.log(curParagraphs);
     	console.log(newParagraphs);
     	console.log(paragraphIdentifiers[clickedElemID]);
 
