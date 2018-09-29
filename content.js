@@ -1345,8 +1345,11 @@ $(document).ready(function() {
                         var paragraph = getParagraphs(curParagraphs, objId);
                         var paragraphId;
 
+                        console.log(curParagraphs);
+
                         console.log(details.data);
                         console.log(objId);
+                        console.log(paragraph);
                         console.log(paragraph[0]);
                         console.log(paragraphId);
                         console.log(selectedParagraphIdentifier);
