@@ -543,7 +543,11 @@ function storeMapping(objId, paragraphNumber, paragraphId) {
 function process(mutationsList) {
     var newParagraphs = getParagraphStructure();
 
+    if(curParagraphs == null) curParagraphs = newParagraph;
+
     getClickedItem(mutationsList);
+
+    console.log(newParagraphs);
 
     if(!systemTurn) {
         if(clickedElements.length == 1) {
