@@ -1203,6 +1203,10 @@ $(document).ready(function() {
                 case "dataLoadedACK":
                     issueEvent(document, "dataLoadedACK", details.data);
                     break;*/
+		case "initialSlideGeneration":
+                    issueEvent(document, "initialSlideGeneration", details.data);
+                    break;
+
             }
 		});
 
@@ -1338,6 +1342,13 @@ $(document).ready(function() {
         $(document).on("getSlideObjectForHighlight", function(e) {
             chromeSendMessage("GET_SLIDE_OBJECT_FOR_HIGHLIGHT", e.detail);
         });
+
+        $(document).on("initialSlideGeneration", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("initialSlideGeneration", p);
+        });
+
     }
 
 	if(this.location.hostname == "docs.google.com") {
