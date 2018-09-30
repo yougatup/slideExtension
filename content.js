@@ -733,10 +733,13 @@ function printMessage2(mutationsList) {
 
     // console.log(paragraphIdentifiers);
 
+    /*
     if(paragraphIdentifiers == null) {
         issueEvent(document, "getParagraphMapping", null);
     }
-    else process(mutationsList);
+    else process(mutationsList);*/
+
+    process(mutationsList);
 }
 
 function clickSystemMouse() {
@@ -1131,160 +1134,189 @@ function getNumberOfParagraphs(objId) {
 }
 
 $(document).ready(function() {
-	if(this.location.hostname == "localhost" && this.location.pathname == '/') { 
-		chrome.runtime.onMessage.addListener(function(details) {
-            switch(details.type) {
-                case "URL_CHANGED":
-                    console.log("URL_CHANGED");
-                    break;
-                case "ADDTEXT_SENDTEXT":
-                    console.log(details.data);
-                    issueEvent(document, "addText", details.data);
-                    break;
-                case "HIGHLIGHT_SLIDE_OBJECT":
-                    issueEvent(document, "highlightSlideObject", details.data);
-                    break;
-                case "CLEAR_PLANE_CANVAS":
-                    issueEvent(document, "clearPlaneCanvas", details.data);
-                    break;
-                case "ROOT_UPDATE_HIGHLIGHT_REQUEST":
-                    issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", details.data);
-                    break;
-                case "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS":
-                    issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", details.data);
-                    break;
-                case "SEND_IMAGE":
-                    issueEvent(document, "SEND_IMAGE", details.data);
-                    break;
-                case "UPDATE_SLIDE_INFO":
-                    issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
-                    break;
-                case "requestShowingAutoComplete":
-                    issueEvent(document, "locateAutoComplete", details.data);
-                    break;
-                case "appearAutoComplete":
-                    issueEvent(document, "appearAutoComplete", details.data);
-                    break;
-                case "removeAutoComplete":
-                    issueEvent(document, "removeAutoComplete", details.data);
-                    break;
-                case "clearVisualizeParagraph":
-                    issueEvent(document, "clearVisualizeParagraph", details.data);
-                    break;
-                case "visualizeParagraph":
-                    issueEvent(document, "visualizeParagraph", details.data);
-                    break;
-                case "sendAutoCompleteInstance":
-                    issueEvent(document, "sendAutoCompleteInstance", details.data);
-                    break;
-                case "prepareAutoCompleteNumbers":
-                    issueEvent(document, "prepareAutoCompleteNumbers", details.data);
-                    break;
-                case "showAutoCompleteNumbers":
-                    issueEvent(document, "showAutoCompleteNumbers", details.data);
-                    break;
-                case "autoCompleteRegister":
-                    issueEvent(document, "autoCompleteRegister", details.data);
-                    break;
-                case "checkAutoComplete":
-                    issueEvent(document, "checkAutoComplete", details.data);
-                    break;
-                case "getParagraphMapping":
-                    issueEvent(document, "getParagraphMapping", details.data);
-                    break;
-                case "removeHighlight":
-                    issueEvent(document, "removeHighlight", details.data);
-                    break;
-                case "sendParagraphMappingData":
-                //     console.log("SEND PARAGRAPH MAPPING DATA ------------ ");
-                    issueEvent(document, "sendParagraphMappingData", details.data);
-                    break;
-                    /*
-                case "dataLoadedACK":
-                    issueEvent(document, "dataLoadedACK", details.data);
-                    break;*/
+    if(this.location.hostname == "localhost" && this.location.pathname == '/') { 
+	chrome.runtime.onMessage.addListener(function(details) {
+	    switch(details.type) {
+		case "URL_CHANGED":
+		    console.log("URL_CHANGED");
+		    break;
+		case "ADDTEXT_SENDTEXT":
+		    console.log(details.data);
+		    issueEvent(document, "addText", details.data);
+		    break;
+		case "HIGHLIGHT_SLIDE_OBJECT":
+		    issueEvent(document, "highlightSlideObject", details.data);
+		    break;
+		case "CLEAR_PLANE_CANVAS":
+		    issueEvent(document, "clearPlaneCanvas", details.data);
+		    break;
+		case "ROOT_UPDATE_HIGHLIGHT_REQUEST":
+		    issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", details.data);
+		    break;
+		case "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS":
+		    issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", details.data);
+		    break;
+		case "SEND_IMAGE":
+		    issueEvent(document, "SEND_IMAGE", details.data);
+		    break;
+		case "UPDATE_SLIDE_INFO":
+		    issueEvent(document, "UPDATE_SLIDE_INFO", details.data);
+		    break;
+		case "requestShowingAutoComplete":
+		    issueEvent(document, "locateAutoComplete", details.data);
+		    break;
+		case "appearAutoComplete":
+		    issueEvent(document, "appearAutoComplete", details.data);
+		    break;
+		case "removeAutoComplete":
+		    issueEvent(document, "removeAutoComplete", details.data);
+		    break;
+		case "clearVisualizeParagraph":
+		    issueEvent(document, "clearVisualizeParagraph", details.data);
+		    break;
+		case "visualizeParagraph":
+		    issueEvent(document, "visualizeParagraph", details.data);
+		    break;
+		case "sendAutoCompleteInstance":
+		    issueEvent(document, "sendAutoCompleteInstance", details.data);
+		    break;
+		case "prepareAutoCompleteNumbers":
+		    issueEvent(document, "prepareAutoCompleteNumbers", details.data);
+		    break;
+		case "showAutoCompleteNumbers":
+		    issueEvent(document, "showAutoCompleteNumbers", details.data);
+		    break;
+		case "autoCompleteRegister":
+		    issueEvent(document, "autoCompleteRegister", details.data);
+		    break;
+		case "checkAutoComplete":
+		    issueEvent(document, "checkAutoComplete", details.data);
+		    break;
+		case "getParagraphMapping":
+		    issueEvent(document, "getParagraphMapping", details.data);
+		    break;
+		case "removeHighlight":
+		    issueEvent(document, "removeHighlight", details.data);
+		    break;
+		case "sendParagraphMappingData":
+		    //     console.log("SEND PARAGRAPH MAPPING DATA ------------ ");
+		    issueEvent(document, "sendParagraphMappingData", details.data);
+		    break;
+		    /*
+		       case "dataLoadedACK":
+		       issueEvent(document, "dataLoadedACK", details.data);
+		       break;*/
 		case "initialSlideGeneration":
-                    issueEvent(document, "initialSlideGeneration", details.data);
-                    break;
+		    issueEvent(document, "initialSlideGeneration", details.data);
+		    break;
+		case "addSectionHighlight":
+		    issueEvent(document, "addSectionHighlight", details.data);
+		    break;
+		case "loadGslide":
+		    issueEvent(document, "loadGslide", details.data);
+		    break;
+		case "registerMappings":
+		    issueEvent(document, "registerMappings", details.data);
+		    break;
+	    }
+	});
 
-            }
-		});
+	$(document).on("TEXT_ADD_COMPLETE", function(e) {
+	    chromeSendMessage("TEXT_ADD_COMPLETE", e.detail);
+	});
 
-        $(document).on("TEXT_ADD_COMPLETE", function(e) {
-            chromeSendMessage("TEXT_ADD_COMPLETE", e.detail);
-                });
+	$(document).on("paragraphMappingData", function(e) {
+	    chromeSendMessage("paragraphMappingData", e.detail);
+	});
 
-        $(document).on("paragraphMappingData", function(e) {
-            chromeSendMessage("paragraphMappingData", e.detail);
-        });
+	$(document).on("PDFJS_HIGHLIGHT_TEXT", function(e) {
+	    chromeSendMessage("PDFJS_HIGHLIGHT_TEXT", e.detail);
+	});
 
-        $(document).on("PDFJS_HIGHLIGHT_TEXT", function(e) {
-            chromeSendMessage("PDFJS_HIGHLIGHT_TEXT", e.detail);
-        });
+	$(document).on("PDFJS_REMOVE_HIGHLIGHT", function(e) {
+	    chromeSendMessage("PDFJS_REMOVE_HIGHLIGHT", e.detail);
+	});
 
-        $(document).on("PDFJS_REMOVE_HIGHLIGHT", function(e) {
-            chromeSendMessage("PDFJS_REMOVE_HIGHLIGHT", e.detail);
-        });
+	$(document).on("autoCompleteSubmitted", function(e) {
+	    chromeSendMessage("autoCompleteSubmitted", e.detail);
+	});
 
-        $(document).on("autoCompleteSubmitted", function(e) {
-            chromeSendMessage("autoCompleteSubmitted", e.detail);
-        });
+	$(document).on("autoCompleteCancelled", function(e) {
+	    chromeSendMessage("autoCompleteCancelled", e.detail);
+	});
 
-        $(document).on("autoCompleteCancelled", function(e) {
-            chromeSendMessage("autoCompleteCancelled", e.detail);
-        });
+	$(document).on("requestShowingAutoComplete", function(e) {
+	    chromeSendMessage("requestShowingAutoComplete", e.detail);
+	});
 
-        $(document).on("requestShowingAutoComplete", function(e) {
-            chromeSendMessage("requestShowingAutoComplete", e.detail);
-        });
+	$(document).on("__dataLoaded", function(e) {
+	    console.log("YE, I'm Serious");
+	    var p = e.detail;
 
-        $(document).on("__dataLoaded", function(e) {
-                console.log("YE, I'm Serious");
-            var p = e.detail;
+	    console.log("SEND DATA LOADED");
 
-            console.log("SEND DATA LOADED");
+	    chromeSendMessage("__dataLoaded", p);
+	});
 
-            chromeSendMessage("__dataLoaded", p);
-        });
+	$(document).on("prepareAutoCompleteNumbersDone", function(e) {
+	    var p = e.detail;
 
-		$(document).on("prepareAutoCompleteNumbersDone", function(e) {
-            var p = e.detail;
+	    chromeSendMessage("prepareAutoCompleteNumbersDone", p);
+	});
 
-            chromeSendMessage("prepareAutoCompleteNumbersDone", p);
-		});
+	$(document).on("sendSlideInfoToPDF", function(e) {
+	    var p = e.detail;
 
-	}
+	    chromeSendMessage("sendSlideInfoToPDF", p);
+	});
+
+	$(document).on("PdfjsMoveScrollBar", function(e) {
+	    var p = e.detail;
+
+	    chromeSendMessage("PdfjsMoveScrollBar", p);
+	});
+    }
     
     // pdf.js contents script
-    else if(this.location.hostname == "localhost"){
-		chrome.runtime.onMessage.addListener(function(details) {
-            switch(details.type) {
-                case "PDFJS_HIGHLIGHT_TEXT":
-                    issueEvent(document, "PDFJS_HIGHLIGHT_TEXT", details);
-                    break;
-                case "PDFJS_REMOVE_HIGHLIGHT":
-                    issueEvent(document, "PDFJS_REMOVE_HIGHLIGHT", details);
-                    break;
-                case "requestShowingAutoComplete":
-                    issueEvent(document, "highlightSearchResults", details);
-                    break;
-                case "removeAutoComplete":
-                    issueEvent(document, "removeAutoComplete", details);
-                    break;
-                case "prepareAutoCompleteNumbers":
-                    issueEvent(document, "prepareAutoCompleteNummbers", details.data);
-                    break;
-                case "showAutoCompleteNumbers":
-                    issueEvent(document, "showAutoCompleteNumbers", details.data);
-                    break;
-                case "autoCompleteSubmitted":
-                    issueEvent(document, "autoCompleteSubmitted", details.data);
-                    break;
-                case "autoCompleteCancelled":
-                    issueEvent(document, "autoCompleteCancelled", details.data);
-                    break;
-            }
-		});
+	else if(this.location.hostname == "localhost"){
+	    chrome.runtime.onMessage.addListener(function(details) {
+		switch(details.type) {
+		    case "PDFJS_HIGHLIGHT_TEXT":
+			issueEvent(document, "PDFJS_HIGHLIGHT_TEXT", details);
+			break;
+		    case "PDFJS_REMOVE_HIGHLIGHT":
+			issueEvent(document, "PDFJS_REMOVE_HIGHLIGHT", details);
+			break;
+		    case "requestShowingAutoComplete":
+			issueEvent(document, "highlightSearchResults", details);
+			break;
+		    case "removeAutoComplete":
+			issueEvent(document, "removeAutoComplete", details);
+			break;
+		    case "prepareAutoCompleteNumbers":
+			issueEvent(document, "prepareAutoCompleteNummbers", details.data);
+			break;
+		    case "showAutoCompleteNumbers":
+			issueEvent(document, "showAutoCompleteNumbers", details.data);
+			break;
+		    case "autoCompleteSubmitted":
+			issueEvent(document, "autoCompleteSubmitted", details.data);
+			break;
+		    case "autoCompleteCancelled":
+			issueEvent(document, "autoCompleteCancelled", details.data);
+			break;
+		    case "sendSlideInfoToPDF":
+			issueEvent(document, "sendSlideInfoToPDF", details.data);
+			break;
+		    case "PdfjsMoveScrollBar":
+			issueEvent(document, "PdfjsMoveScrollBar", details.data);
+			break;
+		}
+	    });
+
+        $(document).on("addSectionHighlight", function(e) {
+            chromeSendMessage("addSectionHighlight", e.detail);
+        });
 
         $(document).on("highlighted", function(e) {
             chromeSendMessage("ADDTEXT_GETOBJ", e.detail);
@@ -1348,6 +1380,19 @@ $(document).ready(function() {
 
             chromeSendMessage("initialSlideGeneration", p);
         });
+
+        $(document).on("loadGslide", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("loadGslide", p);
+        });
+
+        $(document).on("registerMappings", function(e) {
+            var p = e.detail;
+
+            chromeSendMessage("registerMappings", p);
+        });
+
 
     }
 
@@ -1745,6 +1790,7 @@ $(document).ready(function() {
                 });
     		}
 
+		issueEvent(document, "getParagraphMapping", null);
         }
     }
  });
