@@ -18,7 +18,7 @@ var curPageID = '';
 var paragraphIdentifiers = null;
 
 var selectedBoxID = null;
-var selectedParagraph = '';
+var selectedParagraph = null;
 var selectedParagraphObj = null;
 var selectedParagraphNumber = null;
 var selectedParagraphIdentifier = null;
@@ -380,7 +380,9 @@ function getPageID() {
 	else return retValue;
 }
 
-function updatePdfjsHighlight(mutationsList) {
+function updatePdfjsHighlight(number) {
+    console.log(number);
+
     var pageId = getPageID();
 
     issueEvent(document, "ROOT_UPDATE_HIGHLIGHT_REQUEST", {
@@ -416,6 +418,13 @@ function get_common_ancestor(a, b)
 
 function updateCurPageAndObjects() {
     var pageId = getPageID();
+
+    if(pageId != curPageID) {
+    	updatePdfjsHighlight(1);
+    }
+
+    curPageID = pageId;
+
 
    	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
    	    "pageId": pageId,
@@ -619,6 +628,8 @@ function process(mutationsList) {
 
                             if(systemTurnTextAdded) {
                                 newParagraphIdentifiers.push(textAddedParagraphIdentifier);
+                                storeMapping(clickedElemID, i, textAddedParagraphIdentifier);
+
                                 systemTurnTextAdded = false;
                             }
                             else {
@@ -650,6 +661,7 @@ function process(mutationsList) {
                             console.log("here 4" + " " + i + " " + j);
 
                             newParagraphIdentifiers.push(paragraphIdentifiers[clickedElemID][i]);
+                            storeMapping(clickedElemID, i, paragraphIdentifiers[clickedElemID][i]);
                         }
                     }
                 }
@@ -677,7 +689,8 @@ function process(mutationsList) {
                     console.log("REMOVED MAPPING");
                     console.log(removedMapping);
 
-                    removeHighlight(removedMapping, newParagraphIdentifiers.length);
+		    if(removedMapping.length > 0) 
+                    	removeHighlight(removedMapping, newParagraphIdentifiers.length);
                 }
 
                 paragraphIdentifiers[clickedElemID] = newParagraphIdentifiers;
@@ -695,7 +708,6 @@ function process(mutationsList) {
     }
 
     updateCurPageAndObjects();
-    updatePdfjsHighlight(mutationsList);
 
     if(systemTurn && !systemMouseDown) {
         clickParagraph(selectedBoxID, selectedParagraphNumber);
@@ -728,16 +740,6 @@ function getDifference(a, b) {
 }
 
 function printMessage2(mutationsList) {
-    // console.log("printMessage2 called!");
-    // console.log(mutationsList);
-
-    // console.log(paragraphIdentifiers);
-
-    /*
-    if(paragraphIdentifiers == null) {
-        issueEvent(document, "getParagraphMapping", null);
-    }
-    else process(mutationsList);*/
 
     process(mutationsList);
 }
@@ -913,22 +915,26 @@ function printMessage3(mutationsList) {
                         visualizeParagraph(pid);
                         flag = true;
 
-                        selectedBoxID = $(box.box).attr("id").split("-")[1]; 
+			if(!(selectedParagraph != null && selectedParagraph.is($("#" + pid)))) {
+			    selectedBoxID = $(box.box).attr("id").split("-")[1]; 
+			    selectedParagraph = $("#" + pid);
+			    selectedParagraphObj = paragraph;
+			    selectedPage = getPageID();
+			    selectedParagraphNumber = j;
+			    selectedParagraphIdentifier = paragraphIdentifiers[selectedBoxID][j];
 
-						selectedParagraph = $("#" + pid);
-                        selectedParagraphObj = paragraph;
-                        selectedPage = getPageID();
-                        selectedParagraphNumber = j;
-                        selectedParagraphIdentifier = paragraphIdentifiers[selectedBoxID][j];
+			    updateCurPageAndObjects();
+			    updatePdfjsHighlight(2);
+			}
 
                         // console.log(selectedParagraphIdentifier);
                         // console.log(document.getElementById(pid).getBoundingClientRect());
 
                         // var resultString = findCursorPosition(cursorCoor, selectedParagraph);
-                        // console.log(resultString);
+			// console.log(resultString);
 
-						break;
-                    }
+			break;
+		    }
                 }
             }
         }
@@ -938,31 +944,28 @@ function printMessage3(mutationsList) {
 
             issueEvent(document, "removeAutoComplete", null);
         }
-		else {
-            // console.log(clickedElements);
+	else {
+	    // console.log(clickedElements);
 
-            updateCurPageAndObjects();
-            updatePdfjsHighlight(mutationsList);
+	    var paragraphText = getParagraphText(selectedParagraph);
 
-			var paragraphText = getParagraphText(selectedParagraph);
-
-            // console.log(curParagraphs);
-            var bg = curParagraphs[0].box;
-            var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
-            // highlightSearchResults(paragraphText);
+	    // console.log(curParagraphs);
+	    var bg = curParagraphs[0].box;
+	    var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
+	    // highlightSearchResults(paragraphText);
 
 
-    	    issueEvent(document, "checkAutoComplete", {
-    	        top: boundingClientRect.top + boundingClientRect.height + 20,
-                left: boundingClientRect.left,
-                width: boundingClientRect.width,
-                words: paragraphText,
-                pageID: getPageID(),
-                objID: clickedElements[0].split('-')[1],
-                paragraphNumber: selectedParagraphNumber,
-                paragraphIdentifier: selectedParagraphIdentifier
-    	    });
-		}
+	    issueEvent(document, "checkAutoComplete", {
+		top: boundingClientRect.top + boundingClientRect.height + 20,
+		left: boundingClientRect.left,
+		width: boundingClientRect.width,
+		words: paragraphText,
+		pageID: getPageID(),
+		objID: clickedElements[0].split('-')[1],
+		paragraphNumber: selectedParagraphNumber,
+		paragraphIdentifier: selectedParagraphIdentifier
+	    });
+	}
 
 //        $("#slidePlaneCanvasPopup").css("left", cursorLeft);
 //        $("#slidePlaneCanvasPopup").css("top", cursorTop + cursorHeight);
@@ -995,12 +998,16 @@ function highlightSearchResults(p) {
 }*/
 
 function clearVisualizeParagraph() {
-    selectedParagraph = '';
-    selectedParagraphObj = null;
-    selectedPage = null;
-    // selectedParagraphNumber = null;
+    if(selectedParagraph != null) {
+	selectedParagraph = null;
+	selectedParagraphObj = null;
+	selectedPage = null;
+	selectedParagraphIdentifier = null;
+	// selectedParagraphNumber = null;
 
-    issueEvent(document, "clearVisualizeParagraph", null);
+	issueEvent(document, "clearVisualizeParagraph", null);
+	updatePdfjsHighlight(3);
+    }
 }
 
 function visualizeParagraph(pid) {
@@ -1102,6 +1109,11 @@ function printMessage(mutationsList) {
 	
 }
 
+function isBullet(text) {
+    if(text == '●' || text == '○' || text == '■') return true;
+    else return false;
+}
+
 function chromeSendMessage(type, data) {
 	chrome.runtime.sendMessage({
 			"type": type,
@@ -1169,6 +1181,9 @@ $(document).ready(function() {
 		    issueEvent(document, "appearAutoComplete", details.data);
 		    break;
 		case "removeAutoComplete":
+		    issueEvent(document, "removeAutoComplete", details.data);
+		    break;
+		case "__removeAutoComplete":
 		    issueEvent(document, "removeAutoComplete", details.data);
 		    break;
 		case "clearVisualizeParagraph":
@@ -1275,6 +1290,12 @@ $(document).ready(function() {
 
 	    chromeSendMessage("PdfjsMoveScrollBar", p);
 	});
+
+	$(document).on("__removeAutoComplete", function(e) {
+	    var p = e.detail;
+
+	    chromeSendMessage("__removeAutoComplete", p);
+	});
     }
     
     // pdf.js contents script
@@ -1292,6 +1313,9 @@ $(document).ready(function() {
 			break;
 		    case "removeAutoComplete":
 			issueEvent(document, "removeAutoComplete", details);
+			break;
+		    case "__removeAutoComplete":
+			issueEvent(document, "removeAutoComplete", details.data);
 			break;
 		    case "prepareAutoCompleteNumbers":
 			issueEvent(document, "prepareAutoCompleteNummbers", details.data);
@@ -1318,15 +1342,15 @@ $(document).ready(function() {
             chromeSendMessage("addSectionHighlight", e.detail);
         });
 
-        $(document).on("highlighted", function(e) {
-            chromeSendMessage("ADDTEXT_GETOBJ", e.detail);
-        });
+	$(document).on("highlighted", function(e) {
+	    chromeSendMessage("ADDTEXT_GETOBJ", e.detail);
+	});
 
-		$(document).on("highlightSlideObject", function(e) {
-            var p = e.detail;
+	$(document).on("highlightSlideObject", function(e) {
+	    var p = e.detail;
 
-            chromeSendMessage("HIGHLIGHT_SLIDE_OBJECT", p);
-		});
+	    chromeSendMessage("HIGHLIGHT_SLIDE_OBJECT", p);
+	});
 
         $(document).on('clearPlaneCanvas', function(e) {
             var p = e.detail;
@@ -1419,7 +1443,7 @@ $(document).ready(function() {
                         console.log(paragraphIdentifiers[objId]);
                         console.log($(paragraph[0]).find("text"));
 
-                        if(paragraph.length == 1 && $(paragraph[0]).find("text").length == 0) { // empty
+                        if((paragraph.length == 1 && $(paragraph[0]).find("text").length == 0) || (paragraph.length == 1 && isBullet($(paragraph[0]).find("text").text()))) { // empty
                             console.log("here, empty");
                             paragraphId = paragraphIdentifiers[objId][0];
 
@@ -1427,6 +1451,7 @@ $(document).ready(function() {
                         }
                         else {
                             console.log("here, not empty");
+
                             paragraphId = createObjId();
                             storeMapping(objId, paragraph.length, paragraphId);
                         }
@@ -1790,8 +1815,8 @@ $(document).ready(function() {
                 });
     		}
 
-		issueEvent(document, "getParagraphMapping", null);
         }
+	issueEvent(document, "getParagraphMapping", null);
     }
  });
 
