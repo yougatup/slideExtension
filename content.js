@@ -19,13 +19,20 @@ var curPageID = '';
 var paragraphIdentifiers = null;
 
 var selectedBoxID = null;
+
+var lastSelectedParagraph = null;
+var lastSelectedParagraphObj = null;
+var lastSelectedParagraphNumber = null;
+var lastSelectedParagraphIdentifier = null;
+var lastSelectedPage = null;
+
 var selectedParagraph = null;
 var selectedParagraphObj = null;
 var selectedParagraphNumber = null;
 var selectedParagraphIdentifier = null;
 var selectedPage = null;
 
-var filmstripHeight = -1;
+var filmstripHeight = -1, filmstripWidth = -1;
 var clickEvent;
 var autoCompleteAppeared = false;
 var autoCompleteConfirmed = false;
@@ -55,6 +62,15 @@ var paragraphReplacedObjId = null;
 var paragraphReplacedParagraphId = null;
 var paragraphReplacedParagraphNumber = null;
 
+var sectionStructure = null, sectionStructureFlag = false;
+var objectToHighlight = null;
+
+var curSectionHeaderStructure = null;
+var slideNavigatorShown = false;
+
+var printMessageTimestamp2 = 0;
+var printMessageTimestamp3 = 0;
+
 function issueEvent(object, eventName, data) {
     var myEvent = new CustomEvent(eventName, {detail: data} );
 
@@ -74,8 +90,8 @@ function checkURL() {
     }
 }
 
-function transit() {
-    window.location.hash = "slide=id.g3a22d564a8_0_37";
+function transit(pageID) {
+    window.location.hash = "slide=id." + pageID;
 }
 
 function firefire() {
@@ -380,9 +396,14 @@ function getClickedItem(mutationsList){
 		var id = $(this).attr("id");
 
 		if(id.endsWith("-bg")) {
+		    console.log($(this));
+		    console.log($(thumbnaileObj));
+
 		    var commonAncestor = get_common_ancestor(thumbnaileObj, this);
 
 		    if($(commonAncestor).is("g")) {
+			console.log($(commonAncestor));
+
 			var splitted = $(this).attr("id").split("-");
 			var pageId = splitted[3];
 
@@ -438,6 +459,26 @@ function getClickedItem(mutationsList){
 	return found;
     }
 
+    function getCurParagraphsString() {
+	var retValue = [];
+
+	for(var i=0;i<curParagraphs.length;i++) {
+	    var box = $(curParagraphs[i].box[0]).attr("id");
+	    var para = [];
+	    
+	    for(var j=0;j<curParagraphs[i].paragraphs.length;j++) {
+		para.push($(curParagraphs[i].paragraphs[j]).attr("id"));
+	    }
+
+	    retValue.push({
+		box: box,
+		para: para
+	    });
+	}
+
+	return retValue;
+    }
+
     function updateCurPageAndObjects() {
 	var pageId = getPageID();
 
@@ -447,12 +488,12 @@ function getClickedItem(mutationsList){
 
 	curPageID = pageId;
 
-
 	issueEvent(document, "ROOT_UPDATE_CUR_PAGE_AND_OBJECTS", {
 	    "pageId": pageId,
 	    "clickedElements": clickedElements,
 	    "paragraphNumber": selectedParagraphNumber,
-	    "paragraphIdentifier": selectedParagraphIdentifier
+	    "paragraphIdentifier": selectedParagraphIdentifier,
+	    "curParagraphs": getCurParagraphsString()
 	});
     }
 
@@ -597,19 +638,29 @@ function getClickedItem(mutationsList){
 	});
     }
 
-    function displayParagraphs(p) {
+    function displayParagraphs(p, flag) {
 	console.log(paragraphIdentifiers);
 	clearVisualizeParagraphForTransition();
 
 	for(var i=0;i<p.length;i++) {
-	    for(var j=0;j<p[i].paragraphs.length;j++) {
-		visualizeParagraph($(p[i].paragraphs[j]).attr("id"), false);
+	    console.log($(p[i].box));
+	    console.log($(p[i].box).find("image"));
+
+	    if($(p[i].box).find("image").length > 0) {
+		visualizeParagraph($(p[i].box).attr("id") + "-paragraph-99", false, flag);
+	    }
+	    else {
+		for(var j=0;j<p[i].paragraphs.length;j++) {
+		    visualizeParagraph($(p[i].paragraphs[j]).attr("id"), false, flag);
+		}
 	    }
 	}
     //	function visualizeParagraph(pid) 
     }
 
     function process(mutationsList) {
+	issueEvent(document, "extension_disappearMenuButton", null);
+
 	var newParagraphs = getParagraphStructure();
 	var oldParagraphIdentifiers, newParagraphIdentifiers;
 
@@ -860,53 +911,102 @@ function getClickedItem(mutationsList){
 	}
 
 	updateCurPageAndObjects();
-	console.log(curParagraphs);
 
-	var currentPageId = getPageID();
+	console.log(curPageID);
 
-	for(var i=0;i<curParagraphs.length;i++) {
-	    if(!curParagraphs[i].box.attr("id").endsWith("-bg")) {
-		var objId = curParagraphs[i].box.attr("id").split("-")[1];
+	if(curParagraphs != null) {
+	    console.log(curParagraphs);
 
-		for(var j=0;j<curParagraphs[i].paragraphs.length;j++) {
-		    var paragraphId = createObjId();
+	    var currentPageId = getPageID();
 
-		    var paragraphNumber = parseInt(curParagraphs[i].paragraphs[j].attr("id").split("-")[3]);
-		    storeMapping(objId, paragraphNumber, paragraphId, false);
-/*
-		    var paragraphId = createObjId();
+	    for(var i=0;i<curParagraphs.length;i++) {
+		if(!curParagraphs[i].box.attr("id").endsWith("-bg")) {
+		    var objId = curParagraphs[i].box.attr("id").split("-")[1];
 
-		    console.log(paragraphIdentifiers);
-		    console.log(objId);
-		    console.log(paragraphIdentifiers[objId]);
+		    for(var j=0;j<curParagraphs[i].paragraphs.length;j++) {
+			var paragraphId = createObjId();
 
-		    if(!(objId in paragraphIdentifiers)) {
-			console.log(paragraphNumber);
-			paragraphIdentifiers[objId] = [paragraphId];
-		    	storeMapping(objId, paragraphNumber, paragraphId, true);
+			var paragraphNumber = parseInt(curParagraphs[i].paragraphs[j].attr("id").split("-")[3]);
+			storeMapping(objId, paragraphNumber, paragraphId, false);
+			/*
+			   var paragraphId = createObjId();
+
+			   console.log(paragraphIdentifiers);
+			   console.log(objId);
+			   console.log(paragraphIdentifiers[objId]);
+
+			   if(!(objId in paragraphIdentifiers)) {
+			   console.log(paragraphNumber);
+			   paragraphIdentifiers[objId] = [paragraphId];
+			   storeMapping(objId, paragraphNumber, paragraphId, true);
+			   }
+			   else if(paragraphIdentifiers[objId].length <= paragraphNumber){
+			   paragraphIdentifiers[objId].push(paragraphId);
+			   console.log(paragraphIdentifiers[objId].length, paragraphNumber);
+			   storeMapping(objId, paragraphNumber, paragraphId, true);
+			   }*/
 		    }
-		    else if(paragraphIdentifiers[objId].length <= paragraphNumber){
-			paragraphIdentifiers[objId].push(paragraphId);
-			console.log(paragraphIdentifiers[objId].length, paragraphNumber);
-		    	storeMapping(objId, paragraphNumber, paragraphId, true);
-		    }*/
 		}
 	    }
-	}
 
-	displayParagraphs(curParagraphs);
+	    displayParagraphs(curParagraphs, false);
+	}
+	/*
+	else {
+	    // no paragraph, but clicked
+
+	    for(var i=0;i<clickedElements.length;i++) {
+		var objID = clickedElements[i];
+		var obj = $("#" + objID);
+
+		console.log(obj);
+
+		var boundary = $(obj)[0].getBoundingClientRect();
+
+		issueEvent(document, "visualizeParagraph", {
+		    pid: "editor-" + objID + "-paragraph-" + objID + "-figure",
+		    height: boundary.height,
+		    width: boundary.width,
+		    left: boundary.left,
+		    top: boundary.top,
+		    flag: true,
+		    pageID: curPageID
+		});
+	    }
+	}*/
 
 	if(systemTurn && !systemMouseDown) {
 	    clickParagraph(selectedBoxID, selectedParagraphNumber);
 	}
 
-	issueEvent(document, "extension_confirmPutParagraph", {
-	    objID: clickedElements[0].split("-")[1],
-	    oldParagraphIdentifiers: oldParagraphIdentifiers,
-	    newParagraphIdentifiers: newParagraphIdentifiers
-	});
+	var myHeight = filmstripHeight * 60 / 100;
+	var myWidth = filmstripWidth * 60 / 100;
+	var curHeight = $($("#filmstrip")[0].childNodes[0]).height();
+	var curWidth = $($("#filmstrip")[0].childNodes[0]).width();
+/*
+	if(curHeight != myHeight) {
+		$($("#filmstrip")[0].childNodes[0]).height(myHeight);
+		$($("#filmstrip")[0].childNodes[0]).width(myWidth);
+	}*/
 
-	// console.log("printMessage2 end!");
+	$("#outlineTaskPlane").height(filmstripHeight * 40 / 100);
+
+	if(clickedElements.length > 0) {
+	    issueEvent(document, "extension_confirmPutParagraph", {
+		objID: clickedElements[0].split("-")[1],
+		oldParagraphIdentifiers: oldParagraphIdentifiers,
+		newParagraphIdentifiers: newParagraphIdentifiers
+	    });
+	}
+
+	console.log("printMessage2 end!");
+
+	console.log(objectToHighlight);
+
+	if(objectToHighlight != null) {
+	    getSlideObjectForHighlight(objectToHighlight);
+	    objectToHighlight = null;
+	}
     }
 
     function getDifference(a, b) {
@@ -933,16 +1033,37 @@ function getClickedItem(mutationsList){
     }
 
     function printMessage2(mutationsList) {
-
 	process(mutationsList);
+	/*
+	var timestamp = + new Date();
+
+	console.log(timestamp);
+
+	if(printMessageTimestamp2 + 400 <= timestamp) {
+	    setTimeout(
+		    function() {
+			process(mutationsList);
+		    }, 400);
+
+	    printMessageTimestamp2 = timestamp;
+	}
+	*/
+
     }
 
-    function clickSystemMouse() {
-	systemMouseDown = true;
+    function clickSystemMouse(name) {
+	console.log(name);
+
+	// systemMouseDown = true;
 
 	console.log("system mouse down");
 
-	document.elementFromPoint(systemMouseCoorInfo.clientX, systemMouseCoorInfo.clientY).dispatchEvent(new MouseEvent('mousedown', {bubbles: true, screenX: systemMouseCoorInfo.systemX, screenY: systemMouseCoorInfo.systemY, clientX: systemMouseCoorInfo.clientX, clientY: systemMouseCoorInfo.clientY}));
+	// console.log(document.elementFromPoint(112, 357));
+
+	// document.elementFromPoint(325, 687).dispatchEvent(new MouseEvent('mousedown', {bubbles: true, screenX: 757, screenY: -878, clientX: 325, clientY: 687}));
+	// document.elementFromPoint(325, 687).dispatchEvent(new MouseEvent('mouseup', {bubbles: true, screenX: 757, screenY: -878, clientX: 325, clientY: 687}));
+
+    	// window.location.hash = "slide=id." + name;
     }
 
     function isIncluded(_a, b) {
@@ -1066,10 +1187,10 @@ function getClickedItem(mutationsList){
 	return accumulatedString;
     }
 
-    function printMessage3(mutationsList) {
+    function printMessage3Body(mutationsList) {
 	var cursorDOM = $("[shape-rendering='crispEdges'][style*='opacity: 1;']");
 
-	// console.log(cursorDOM);
+	console.log(cursorDOM);
 
 	if($(cursorDOM).length > 0) {
 	    if(autoCompleteConfirmed) {
@@ -1109,20 +1230,39 @@ function getClickedItem(mutationsList){
 			if(isIncluded(document.getElementById(pid).getBoundingClientRect(), cursorCoor)) {
 			    console.log(paragraph);
 			    console.log(pid);
+			    var paragraphText = getParagraphText(paragraph);
+			    console.log(paragraphText);
 
-			    visualizeParagraph(pid, true);
+			    visualizeParagraph(pid, true, false);
 			    flag = true;
+
+			    console.log(selectedParagraph);
 
 			    if(!(selectedParagraph != null && selectedParagraph.is($("#" + pid)))) {
 				selectedBoxID = $(box.box).attr("id").split("-")[1]; 
+
 				selectedParagraph = $("#" + pid);
 				selectedParagraphObj = paragraph;
 				selectedPage = getPageID();
 				selectedParagraphNumber = j;
 				selectedParagraphIdentifier = paragraphIdentifiers[selectedBoxID][j];
 
+				lastSelectedParagraph = selectedParagraph;
+				lastSelectedParagraphObj = selectedParagraphObj;
+				lastSelectedPage = selectedPage;
+				lastSelectedParagraphNumber = selectedParagraphNumber;
+				lastSelectedParagraphIdentifier = selectedParagraphIdentifier;
+
+				console.log(lastSelectedParagraph);
+
 				updateCurPageAndObjects();
 				updatePdfjsHighlight(2);
+
+				issueEvent(document, "extension_setMenu", {
+				    rect: document.getElementById(pid).getBoundingClientRect(),
+				    curParagraphObjID: pid,
+				    paragraphNumber: selectedParagraphNumber
+				});
 			    }
 
 			    // console.log(selectedParagraphIdentifier);
@@ -1132,8 +1272,10 @@ function getClickedItem(mutationsList){
 			    // console.log(resultString);
 			}
 			else {
-			    visualizeParagraph(pid, false);
+			    visualizeParagraph(pid, false, false);
 			}
+
+			console.log($(paragraph));
 		    }
 		}
 	    }
@@ -1146,17 +1288,22 @@ function getClickedItem(mutationsList){
 	    else {
 		// console.log(clickedElements);
 
+		console.log($(selectedParagraph));
+
 		var paragraphText = getParagraphText(selectedParagraph);
 
 		// console.log(curParagraphs);
 		var bg = curParagraphs[0].box;
-		var boundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
+		var paragraphBoundingClientRect = document.getElementById($(selectedParagraph).attr("id")).getBoundingClientRect();
+		var bgBoundingClientRect = document.getElementById($(bg).attr("id")).getBoundingClientRect();
 		// highlightSearchResults(paragraphText);
 
+		console.log(paragraphText);
+
 		issueEvent(document, "checkAutoComplete", {
-		    top: boundingClientRect.top + boundingClientRect.height + 20,
-		    left: boundingClientRect.left,
-		    width: boundingClientRect.width,
+		    top: paragraphBoundingClientRect.top + paragraphBoundingClientRect.height + 5,
+		    left: bgBoundingClientRect.left,
+		    width: bgBoundingClientRect.width,
 		    words: paragraphText,
 		    pageID: getPageID(),
 		    objID: clickedElements[0].split('-')[1],
@@ -1173,7 +1320,37 @@ function getClickedItem(mutationsList){
 
 	    cursorDOM = $(".sketchy-text-selection-overlay");
 
-	    // console.log(cursorDOM);
+	    console.log(cursorDOM);
+	    console.log(clickedElements);
+
+	    console.log($("#" + clickedElements[0]));
+	    console.log($("#" + clickedElements[0]).find("image"));
+
+	    var clickedObj = $("#" + clickedElements[0]);
+
+	    console.log(curParagraphs);
+	    console.log(curParagraphs);
+
+	    var paragraph = curParagraphs[2].paragraphs[0];
+
+	    var paragraphNumber = -1;
+	    var bodyText = $(paragraph).find("text")[0].innerHTML;
+
+	    console.log(bodyText);
+
+	    if(bodyText == "Click") paragraphNumber = 0;
+	    else paragraphNumber = curParagraphs[2].paragraphs.length;
+
+	    console.log(paragraphNumber);
+
+	    if($(clickedObj).find("image").length > 0) {
+		issueEvent(document, "extension_setMenu", {
+		    rect: document.getElementById(clickedElements[0]).getBoundingClientRect(),
+		    curParagraphObjID: clickedElements[0],
+		    paragraphNumber: 99,
+		    obj_to_push_paragraphNumber: paragraphNumber
+		});
+	    }
 
 	    if($(cursorDOM).length > 0) { // region
 		// console.log($(cursorDOM));
@@ -1186,8 +1363,46 @@ function getClickedItem(mutationsList){
 	    }
 	}
 
-	// console.log("printMessage3 end!");
+	var curPageID = getPageID();
+	var curObjects = [];
+
+	$("#editor-" + curPageID).find("g[id^='editor-']").each(function(e) {
+	    if($(this).attr("id").includes("-paragraph-")) {
+		curObjects.push({
+		    id: $(this).attr("id"),
+		    text: $.trim(getParagraphText($(this)))
+		});
+	    }
+	});
+
+	updateBar(getPageID(), curObjects);
     }
+
+    function printMessage3(mutationsList) {
+	var timestamp = + new Date();
+
+	console.log(timestamp, printMessageTimestamp3);
+
+	if(printMessageTimestamp3 + 1000 <= timestamp) {
+	    printMessageTimestamp3 = timestamp;
+
+	    setTimeout(
+		    function() {
+			printMessage3Body(mutationsList);
+		    }, 1000);
+	}
+
+    }
+
+    function updateBar(pageID, curObjects) {
+	console.log(pageID, curObjects);
+
+	issueEvent(document, "extension_updateSimilarBar", {
+	    pageID: pageID,
+	    curObjects: curObjects
+	});
+    }
+
     /*
        function highlightSearchResults(p) {
        issueEvent(document, "highlightSearchResults", {
@@ -1217,8 +1432,17 @@ function getClickedItem(mutationsList){
 	}
     }
 
-    function visualizeParagraph(pid, flag) {
-	var boundingClientRect = document.getElementById(pid).getBoundingClientRect();
+    function visualizeParagraph(pid, flag, flag2) {
+	console.log(pid, flag);
+
+	var boundingClientRect;
+
+	if(pid.split('-')[3] == 99) {
+	    boundingClientRect = document.getElementById("editor-" + pid.split('-')[1]).getBoundingClientRect();
+	}
+	else {
+	    boundingClientRect = document.getElementById(pid).getBoundingClientRect();
+	}
 
 	issueEvent(document, "visualizeParagraph", {
 	    pid: pid,
@@ -1227,7 +1451,8 @@ function getClickedItem(mutationsList){
 	    left: boundingClientRect.left,
 	    top: boundingClientRect.top,
 	    flag: flag,
-	    pageID: curPageID
+	    pageID: curPageID,
+	    boundaryFlag: flag2
 	});
     }
 
@@ -1243,6 +1468,8 @@ function getClickedItem(mutationsList){
 	console.log(document.getElementById(objId));
 
 	var boundingClientRect = document.getElementById(objId).getBoundingClientRect();
+
+	console.log(boundingClientRect);
 
 	issueEvent(document, "highlightSlideObject", {
 	    objId: objId,
@@ -1302,7 +1529,7 @@ function getClickedItem(mutationsList){
 	    }
 
 	    for(var j=0;j<mutationsList[i].removedNodes.length;j++) {
-		if(mutationsList[i].removedNodes[j].classList.contains("sketchy-text-content-text")) {
+		if(mutationsList[i].removedNodes[j].classList != null && mutationsList[i].removedNodes[j].classList.contains("sketchy-text-content-text")) {
 		    target = $(mutationsList[i].target);
 		    slideId = slideId.concat(findSlideId(target));
 
@@ -1317,12 +1544,188 @@ function getClickedItem(mutationsList){
 	return slideId;
     }
 
-    function addSectionHeadersOnFilmstrip() {
-	var filmstripList = [];
+    function getSectionTitle(sectionHierarchy, pageID) {
+	if(pageID in sectionHierarchy) {
+	    console.log(pageID);
+	    console.log(sectionHierarchy);
 
-	$(".inlineSectionHeaders").attr("z-index", "987987987");
+	    var keys = Object.keys(sectionHierarchy[pageID]);
+
+	    for(var j=0;j<keys.length;j++) {
+		var key = keys[j];
+
+		console.log(key);
+		console.log(sectionHierarchy[pageID][key]);
+
+		if(sectionHierarchy[pageID][key][0] != null){
+		    console.log(sectionHierarchy[pageID][key][0]);
+		    return sectionHierarchy[pageID][key][0];
+		}
+	    }
+
+	    return "null";
+	}
+	else {
+	    return "null";
+	}
+    }
+
+    function putSectionTitle(thumbnailObj, sectionTitle) {
+	if($(thumbnailObj).find(".inlineSectionHeaders").length > 0) {
+	    var textElem = $(thumbnailObj).find(".inlineSectionHeaders");
+	    var rectElem = $(thumbnailObj).find(".inlineSectionHeaderRect");
+
+	    if(sectionTitle != "null")
+	    	$(textElem).html(sectionTitle);
+	    else
+	    	$(textElem).html('');
+
+	    var textBBox = $(textElem)[0].getBBox();
+
+	    var textElemWidth = textBBox.width;
+	    var textElemHeight = textBBox.height;
+
+	    $(rectElem).attr("width",textElemWidth+20); 
+	    $(rectElem).attr("height", textElemHeight);
+	}
+	else {
+	    var temp = $(thumbnailObj).attr("transform").split(' ')[1];
+	    var textElem = $(thumbnailObj).find("text")[0];
+
+	    var rectElem = $(thumbnailObj).find("rect")[0];
+
+	    var clonedTextElem = $(textElem).clone();
+	    var clonedRectElem = $(rectElem).clone();
+	    var clonedRectElem2 = $(textElem).clone();
+
+	    var clonedTextElemClass = "punch-filmstrip-thumbnail-pagenumber";
+
+	    $(clonedTextElem).attr("class", clonedTextElemClass + " inlineSectionHeaders");
+	    $(clonedTextElem).attr("x", "10");
+	    $(clonedTextElem).attr("y", "0");
+	    $(clonedTextElem).attr("text-anchor", "start");
+
+	    if(sectionTitle != "null")
+	    	$(clonedTextElem).html(sectionTitle);
+	    else
+	    	$(clonedTextElem).html('');
+
+
+	    $(thumbnailObj).append(clonedTextElem);
+
+	    var textBBox = $(clonedTextElem)[0].getBBox();
+
+	    var textElemWidth = textBBox.width;
+	    var textElemHeight = textBBox.height;
+
+	    console.log(textElemWidth, textElemHeight);
+
+	    var clonedRectElemClass = $(clonedRectElem).attr("class");
+	    $(clonedRectElem).attr("class", clonedRectElemClass + " inlineSectionHeaderRect");
+	    $(clonedRectElem).attr("stroke-width", "1");
+	    $(clonedRectElem).attr("x", "0");
+	    $(clonedRectElem).attr("y", "-10");
+	    $(clonedRectElem).attr("width",textElemWidth+20); 
+	    $(clonedRectElem).attr("height", textElemHeight);
+
+	    $(clonedRectElem).css("stroke", "black");
+	    $(clonedRectElem).css("fill", "yellow");
+	    $(clonedRectElem).css("z-index", "987987");
+
+	    $(clonedRectElem).insertBefore(clonedTextElem);
+
+	    $(clonedRectElem2).attr("class", "inlineSectionSimilarBar");
+	    $(clonedRectElem2).attr("x", "40");
+	    $(clonedRectElem2).attr("y", "40");
+	    $(clonedRectElem2).attr("width", "20");
+	    $(clonedRectElem2).attr("height", "50");
+	    $(clonedRectElem2).attr("fill", "red");
+	    $(clonedRectElem2).attr("font-weight", "bold");
+	    $(clonedRectElem2).html("100 %");
+
+/*
+	    $(clonedRectElem2).attr("stroke-width", "1");
+	    $(clonedRectElem2).css("stroke", "black");
+	    */
+
+	    $(clonedRectElem2).css("z-index", "987987");
+
+	    $(thumbnailObj).append(clonedRectElem2);
+
+	    /*
+	    console.log($(thumbnailObj));
+	    console.log($(thumbnailObj).prev());
+
+	    var thisTransformValue = $(thumbnailObj).attr("transform").split(' ')[1].split(')')[0];
+
+	    var prevObj = $(thumbnailObj).prev();
+	    var prevTransformValue = $(prevObj).attr("transform").split(' ')[1].split(')')[0];
+
+	    console.log($(thumbnailObj));
+	    console.log($(prevObj));
+	    console.log(thisTransformValue);
+	    console.log(prevTransformValue);
+
+	    $(prevObj).appendTo($(thumbnailObj).parent());
+	    
+	    var curObj = $(thumbnailObj);
+
+	    for(var i=0;i<20;i++) {
+	    	var curTransformValue = $(curObj).attr("transform").split(' ')[1].split(')')[0];
+
+		if(curTransformValue < thisTransformValue) {
+		    $(thumbnailObj).detach().insertAfter($(curObj));
+		    break;
+		}
+
+		curObj = $(curObj).prev();
+
+		var attr = $(curObj).attr("transform");
+		console.log(attr);
+
+		if (!(typeof attr !== typeof undefined && attr !== false)) {
+		    break;
+		}
+
+		console.log($(curObj));
+	    }
+	    */
+	}
+    }
+
+    function addSectionHeadersOnFilmstrip(sectionHierarchy) {
+	console.log(sectionHierarchy);
+
+	var filmstripList = [];
+	var appendedSectionList = {};
 
 	$(".punch-filmstrip-thumbnail").each(function(e) {
+	    var thumbnailObj = $(this);
+
+	    // console.log($(this));
+	    // console.log($(this).find("g[id^='filmstrip-slide-']"));
+
+	    $(this).find("g[id^='filmstrip-slide-']").each(function(e) {
+		// console.log($(this));
+
+		var id = $(this).attr("id");
+
+		if(id.endsWith("-bg")) {
+		    var pageID = id.split('-')[3];
+		    var sectionTitle = getSectionTitle(sectionHierarchy, pageID);
+
+		    // console.log(sectionHierarchy);
+		    // console.log(pageID);
+		    // console.log(sectionTitle);
+
+		    putSectionTitle(thumbnailObj, sectionTitle);
+
+		    appendedSectionList[sectionTitle] = 1;
+		}
+		
+	    });
+
+	    /*
 	    console.log($(this));
 
 	    var temp = $(this).attr("transform").split(' ')[1];
@@ -1374,22 +1777,77 @@ function getClickedItem(mutationsList){
 	    $(clonedRectElem2).css("z-index", "987987");
 
 	    $(this).append(clonedRectElem2);
+	    */
 	});
+
+	$(".inlineSectionHeaders").attr("z-index", "987987987");
+
+	$(".outlineTaskPlaneElement").each(function(e) {
+	    var contents = $(this).html();
+
+	    if(contents in appendedSectionList) {
+		$(this).css("color", "black");
+	    }
+	    else {
+		$(this).css("color", "lightgrey");
+	    }
+	});
+    }
+
+    function outlineTaskRowClicked() {
+	
+    }
+
+    function appendOutlineTaskRow(sectionTitle, sectionOrder) {
+	$("#outlineTaskPlane").append(
+		'<div class="outlineTaskPlaneElement" sectionOrder="' + sectionOrder + '" onclick="outlineTaskRowClicked()">' + sectionTitle + '</div>'
+		);
+
+	$(".outlineTaskPlaneElement").css("font-size", "18px");
+	$(".outlineTaskPlaneElement").css("cursor", "pointer");
+	$(".outlineTaskPlaneElement").css("margin", "5px");
+    }
+
+    function getSectionStructure() {
+	issueEvent(document, "extension_getSectionStructure", null);
     }
 
     function printMessage(mutationsList) {
 	// console.log(mutationsList);
 	var updatedSlides = findUpdatedSlides(mutationsList);
 
-	if($(".inlineSectionHeaders").length <= 0) 
-		addSectionHeadersOnFilmstrip();
+	var curSlidePage = $("#pages");
+
+	if(!slideNavigatorShown) {
+	    $(curSlidePage).find("g").each(function(e) {
+		if($(this).attr("id") != null && $(this).attr("id").endsWith("-bg")) {
+		    var boundingClientRect = document.getElementById($(this).attr("id")).getBoundingClientRect();
+		    // highlightSearchResults(paragraphText);
+
+		    issueEvent(document, "extension_showSlideNavigator", {
+			top: boundingClientRect.top - 20,
+			left: boundingClientRect.left,
+			width: boundingClientRect.width,
+		    });
+
+		    slideNavigatorShown = true;
+		}
+	    });
+	}
 
 	if(filmstripHeight == -1) {
 	    filmstripHeight = ($($("#filmstrip")[0].childNodes[0]).height());
+	    filmstripWidth = ($($("#filmstrip")[0].childNodes[0]).width());
+	}
+
+	if(!sectionStructureFlag) {
+	    getSectionStructure();
+	    sectionStructureFlag = true;
 	}
 
 	$($("#filmstrip")[0].childNodes[0]).height(filmstripHeight * 60 / 100);
 	$("#outlineTaskPlane").height(filmstripHeight * 40 / 100);
+	$("#outlineTaskPlane").width(filmstripWidth);
 
 	if($("#outlineTaskPlane").length <= 0) {
 	    $($("#filmstrip").parent()).append(
@@ -1404,21 +1862,10 @@ function getClickedItem(mutationsList){
 		    '<div class="outlineTaskPlaneHeader"> Document structure </div>'
 		    );
 
-	    $("#outlineTaskPlane").append(
-		    '<div class="outlineTaskPlaneElement"> Introduction </div>'
-		    );
-	    $("#outlineTaskPlane").append(
-		    '<div class="outlineTaskPlaneElement"> Related work </div>'
-		    );
-
 	    $(".outlineTaskPlaneHeader").css("font-size", "20px");
 	    $(".outlineTaskPlaneHeader").css("font-weight", "bold");
 	    $(".outlineTaskPlaneHeader").css("text-align", "center");
 	    $(".outlineTaskPlaneHeader").css("margin", "5px");
-
-	    $(".outlineTaskPlaneElement").css("font-size", "18px");
-	    $(".outlineTaskPlaneElement").css("cursor", "pointer");
-	    $(".outlineTaskPlaneElement").css("margin", "5px");
 	}
 
 	for(var i=0;i<updatedSlides.length;i++) {
@@ -1625,7 +2072,79 @@ function getClickedItem(mutationsList){
 		    case "pdfjs_clearDatabase" :
 			issueEvent(document, "pdfjs_clearDatabase", details);
 			break;
+		    case "extension_getSectionStructure" :
+			issueEvent(document, "extension_getSectionStructure", details);
+			break;
+		    case "extension_getInlineSectionHeaders" :
+			issueEvent(document, "extension_getInlineSectionHeaders", details);
+			break;
+		    case "extension_showSlideNavigator" :
+			issueEvent(document, "extension_showSlideNavigator", details);
+			break;
+		    case "extension_updateNavigationElement" :
+			issueEvent(document, "extension_updateNavigationElement", details);
+			break;
+		    case "pdfjs_locateObject" :
+			issueEvent(document, "pdfjs_locateObject", details);
+			break;
+		    case "extension_updateSimilarBar" :
+			issueEvent(document, "extension_updateSimilarBar", details);
+			break;
+		    case "extension_setMenu" :
+			issueEvent(document, "extension_setMenu", details);
+			break;
+		    case "extension_disappearMenuButton" :
+			issueEvent(document, "extension_disappearMenuButton", details);
+			break;
+		    case "pdfjs_disableSlideplane" :
+			issueEvent(document, "pdfjs_disableSlideplane", details);
+			break;
+		    case "pdfjs_enableSlideplane" :
+			issueEvent(document, "pdfjs_enableSlideplane", details);
+			break;
+		    case "extension_sendStyle" :
+			issueEvent(document, "extension_sendStyle", details);
+			break;
+		    case "extension_sendCurParagraphForStyling" :
+			issueEvent(document, "extension_sendCurParagraphForStyling", details);
+			break;
 		}
+	    });
+
+	    $(document).on("root_getCurParagraphForStyling", function(e) {
+		chromeSendMessage("root_getCurParagraphForStyling", e.detail);
+	    });
+
+	    $(document).on("root_sendStyleCurPage", function(e) {
+		chromeSendMessage("root_sendStyleCurPage", e.detail);
+	    });
+
+	    $(document).on("root_submitSimilarBarScore", function(e) {
+		chromeSendMessage("root_submitSimilarBarScore", e.detail);
+	    });
+
+	    $(document).on("root_slideNavigatorShownCheck", function(e) {
+		chromeSendMessage("root_slideNavigatorShownCheck", e.detail);
+	    });
+
+	    $(document).on("root_locateObject", function(e) {
+		chromeSendMessage("root_locateObject", e.detail);
+	    });
+
+	    $(document).on("root_simulateClick", function(e) {
+		chromeSendMessage("root_simulateClick", e.detail);
+	    });
+
+	    $(document).on("root_getSectionHierarchyStructure", function(e) {
+		console.log(e.detail);
+
+		chromeSendMessage("root_getSectionHierarchyStructure", e.detail);
+	    });
+
+	    $(document).on("root_sendSectionTitleToExtension", function(e) {
+		console.log(e.detail);
+
+		chromeSendMessage("root_sendSectionTitleToExtension", e.detail);
 	    });
 
 	    $(document).on("root_displayParagraphsCall", function(e) {
@@ -1759,11 +2278,35 @@ function getClickedItem(mutationsList){
 		    case "extension_requestSlideNumberUpdate":
 			issueEvent(document, "extension_requestSlideNumberUpdate", details.data);
 			break;
+		    case "root_getSectionHierarchyStructure":
+			issueEvent(document, "root_getSectionHierarchyStructure", details.data);
+			break;
 		}
 	    });
 
-	    console.log(this);
-	    console.log(this.location.hostname);
+	    $(document).on("pdfjs_disableSlideplane", function(e) {
+		chromeSendMessage("pdfjs_disableSlideplane", e.detail);
+	    });
+
+	    $(document).on("pdfjs_clearParagraphs", function(e) {
+		chromeSendMessage("pdfjs_clearParagraphs", e.detail);
+	    });
+
+	    $(document).on("pdfjs_displayParagraphs", function(e) {
+		chromeSendMessage("pdfjs_displayParagraphs", e.detail);
+	    });
+
+	    $(document).on("pdfjs_enableSlideplane", function(e) {
+		chromeSendMessage("pdfjs_enableSlideplane", e.detail);
+	    });
+
+	    $(document).on("pdfjs_locateObject", function(e) {
+		chromeSendMessage("pdfjs_locateObject", e.detail);
+	    });
+
+	    $(document).on("pdfjs_printInlineSectionHeaders", function(e) {
+		chromeSendMessage("pdfjs_printInlineSectionHeaders", e.detail);
+	    });
 
 	    $(document).on("pdfjs_clearDatabase", function(e) {
 		chromeSendMessage("pdfjs_clearDatabase", e.detail);
@@ -2056,11 +2599,304 @@ function getClickedItem(mutationsList){
 		    case "root_displayParagraphsCall" :
 			issueEvent(document, "root_displayParagraphsCall", details);
 			break;
+		    case "root_sendSectionTitleToExtension" :
+			console.log("??????????");
+			issueEvent(document, "root_sendSectionTitleToExtension", details);
+			break;
+		    case "pdfjs_printInlineSectionHeaders" :
+			issueEvent(document, "pdfjs_printInlineSectionHeaders", details);
+			break;
+	   	    case "root_simulateClick" :
+			issueEvent(document, "root_simulateClick", details);
+			break;
+	   	    case "root_locateObject" :
+			issueEvent(document, "root_locateObject", details);
+			break;
+	   	    case "root_slideNavigatorShownCheck" :
+			issueEvent(document, "root_slideNavigatorShownCheck", details);
+			break;
+	   	    case "root_submitSimilarBarScore" :
+			issueEvent(document, "root_submitSimilarBarScore", details);
+			break;
+		    case "pdfjs_displayParagraphs" :
+			issueEvent(document, "pdfjs_displayParagraphs", details);
+			break;
+		    case "pdfjs_clearParagraphs" :
+			issueEvent(document, "pdfjs_clearParagraphs", details);
+			break;
+		    case "root_sendStyleCurPage" :
+			issueEvent(document, "root_sendStyleCurPage", details);
+			break;
+		    case "root_getCurParagraphForStyling" :
+			issueEvent(document, "root_getCurParagraphForStyling", details);
+			break;
+		}
+	    });
+
+	    $(document).on("extension_sendCurParagraphForStyling", function(e) {
+		chromeSendMessage("extension_sendCurParagraphForStyling", e.detail);
+	    });
+
+	    $(document).on("root_getCurParagraphForStyling", function(e) {
+		console.log(lastSelectedParagraph);
+
+		issueEvent(document, "extension_sendCurParagraphForStyling", {
+		    objID: lastSelectedParagraph.attr("id").split('-')[1],
+		    paragraphNumber: lastSelectedParagraph.attr("id").split('-')[3]
+		});
+	    });
+
+	    function getTextStyleFromSlideInfo(slideObj, objID, paragraphNumber) {
+		console.log(objID);
+		console.log(paragraphNumber);
+
+		for(var i=0;i<slideObj.pageElements.length;i++) {
+		    console.log(slideObj.pageElements[i]);
+
+		    if(slideObj.pageElements[i].objectId == objID) {
+			var text = slideObj.pageElements[i].shape.text;
+			var paragraphCnt = 0;
+
+			console.log(text);
+
+			for(var j=0;j<text.textElements.length;j++) {
+			    console.log(text.textElements[j]);
+			    console.log(paragraphCnt);
+
+			    if("paragraphMarker" in text.textElements[j]) paragraphCnt++;
+			    else {
+				if(paragraphCnt == paragraphNumber+1) {
+				    return text.textElements[j].textRun.style;
+				}
+			    }
+			}
+		    }
+		}
+
+		return null;
+	    }
+
+
+	    $(document).on("root_sendStyleCurPage", function(e) {
+		console.log(curParagraphs);
+		console.log(lastSelectedParagraph);
+		console.log(lastSelectedParagraph);
+		console.log(lastSelectedParagraphObj);
+		console.log(lastSelectedParagraphNumber);
+		console.log(lastSelectedParagraphIdentifier);
+
+		var objID = lastSelectedParagraphObj.attr("id").split('-')[1];
+		var p = e.detail.data;
+		console.log(p);
+
+		var myStyle = getTextStyleFromSlideInfo(p, objID, lastSelectedParagraphNumber);
+
+		if(Object.keys(myStyle).length > 0) {
+		    // style exist
+		    issueEvent(document, "extension_sendStyle", myStyle);
+		}
+	    });
+
+	    $(document).on("extension_sendStyle", function(e) {
+		chromeSendMessage("extension_sendStyle", e.detail);
+	    });
+
+	    $(document).on("pdfjs_clearParagraphs", function(e) {
+		clearVisualizeParagraphForTransition();
+	    });
+
+	    $(document).on("pdfjs_displayParagraphs", function(e) {
+		displayParagraphs(curParagraphs, true);
+	    });
+
+	    $(document).on("extension_disappearMenuButton", function(e) {
+		chromeSendMessage("extension_disappearMenuButton", e.detail);
+	    });
+
+	    $(document).on("extension_setMenu", function(e) {
+		chromeSendMessage("extension_setMenu", e.detail);
+	    });
+
+	    function setInlineSectionSimilarBarHeight(obj, p) {
+		if(p <= 0.5) {
+		    $(obj).attr("fill", "blue");
+		    $(obj).removeAttr("font-weight");
+		}
+		else {
+		    $(obj).attr("fill", "red");
+		    $(obj).attr("font-weight", "bold");
+		}
+
+		$(obj).html(
+			parseInt(100 * p) + ' %'
+			);
+	    }
+
+	    $(document).on("root_submitSimilarBarScore", function(e) {
+		var p = e.detail.data;
+		console.log(p);
+
+		$(".punch-filmstrip-thumbnail").find("g[id^='filmstrip-slide-']").each(function(e) {
+		    if($(this).attr("id").endsWith(p.pageID)) {
+			var root = $(this).parent().parent().parent().parent();
+
+			console.log($(root));
+			var inlineSectionSimilarBar = $(root).find(".inlineSectionSimilarBar");
+
+			console.log($(inlineSectionSimilarBar));
+
+			setInlineSectionSimilarBarHeight(inlineSectionSimilarBar, p.total == 0 ? 0 : p.match / p.total);
+		    }
+		});
+//	    $(clonedRectElem2).attr("class", clonedRectElem2Class + " inlineSectionSimilarBar");
+	    });
+
+	    $(document).on("extension_updateSimilarBar", function(e) {
+		chromeSendMessage("extension_updateSimilarBar", e.detail);
+	    });
+
+	    $(document).on("extension_updateNavigationElement", function(e) {
+		chromeSendMessage("extension_updateNavigationElement", e.detail);
+	    });
+
+	    $(document).on("root_slideNavigatorShownCheck", function(e) {
+		slideNavigatorShown = true;
+	    });
+
+	    function getPageIDWithObj(objid) {
+		var retValue = null;
+
+		$("g[id^='filmstrip-slide-']").each(function() {
+		    var id = $(this).attr("id");
+
+		    if(id.endsWith(objid)) {
+			retValue = $(this).parent().attr("id").split('-')[3];
+			return;
+		    }
+		});
+
+		return retValue;
+	    }
+
+	    $(document).on("root_locateObject", function(e) {
+		var p = e.detail.data;
+
+		var objID = p.objID;
+		var paragraphNumber = p.paragraphNumber;
+		var pageID = getPageIDWithObj(objID);
+	
+		console.log(pageID);
+		console.log(p);
+
+		locateObject(pageID, objID, paragraphNumber);
+	    });
+
+	    function getFirstObject(curPageID) {
+		var retValue = null;
+		$("#editor-" + curPageID).find("g[id^='editor-']").each(function(e) {
+		    if(retValue == null && !($(this).attr("id").endsWith("bg"))) {
+			retValue = $(this);
+			return;
+		    }
+		});
+
+		return retValue;
+	    }
+
+	    function locateObject(pageID, objID, paragraphNumber) {
+		if(pageID == null && objID == null) {
+		    var curPage = getPageID();
+		    var paragraphNumber = 0;
+		    var obj = getFirstObject(curPage);
+		    console.log($(obj));
+
+		    getSlideObjectForHighlight($(obj).attr("id") + '-paragraph-' + paragraphNumber);
+
+		    issueEvent(document, "extension_updateNavigationElement", {
+			id: $(obj).attr("id") + '-paragraph-' + paragraphNumber
+		    });
+		}
+		else {
+		    console.log(pageID, objID, paragraphNumber);
+		    console.log(objID + '-paragraph-' + paragraphNumber);
+		    console.log($("#editor-" + objID + '-paragraph-' + paragraphNumber));
+
+		    var curPage = getPageID();
+
+		    transit(pageID);
+		    objectToHighlight = "editor-" + objID + '-paragraph-' + paragraphNumber;
+
+		    console.log(objectToHighlight);
+
+		    console.log(curPage);
+
+		    if(curPage == pageID) {
+			getSlideObjectForHighlight("editor-" + objID + '-paragraph-' + paragraphNumber);
+			objectToHighlight = null;
+		    }
+		    // getSlideObjectForHighlight("editor-" + objID + '-paragraph-' + paragraphNumber);
+		}
+	    }
+
+	    $(document).on("click", function(e) {
+		console.log("clickeD!");
+		console.log(e.pageX + ' ' + e.pageY);
+		console.log(e);
+
+		var screenX = parseFloat(window.screenX + 50);
+		var screenY = parseFloat(window.screenY + 50);
+	    });
+
+	    $(document).on("root_simulateClick", function(e) {
+		var p = e.detail.data;
+		console.log("simulateClick");
+/*
+		var screenX = parseFloat(window.screenX + 50);
+		var screenY = parseFloat(window.screenY + 50);
+
+		systemMouseCoorInfo.screenX = screenX;
+		systemMouseCoorInfo.screenY = screenY;
+		systemMouseCoorInfo.clientX = 10;
+		systemMouseCoorInfo.clientY = 10;
+
+		console.log(systemMouseCoorInfo);*/
+
+		clickSystemMouse(p);
+	    });
+
+	    $(document).on("extension_showSlideNavigator", function(e) {
+		chromeSendMessage("extension_showSlideNavigator", e.detail);
+	    });
+
+	    $(document).on("pdfjs_printInlineSectionHeaders", function(e) {
+		var p = e.detail;
+		console.log(e.detail);
+
+		addSectionHeadersOnFilmstrip(p.data);
+	    });
+
+	    $(document).on("extension_getInlineSectionHeaders", function(e) {
+		chromeSendMessage("extension_getInlineSectionHeaders", e.detail);
+	    });
+
+	    $(document).on("extension_getSectionStructure", function(e) {
+		var p = e.detail;
+
+		chromeSendMessage("extension_getSectionStructure", p);
+	    });
+
+	    $(document).on("root_sendSectionTitleToExtension", function(e) {
+		var p = e.detail.data;
+
+		sectionStructure = p;
+
+		for(var i=0;i<p.sectionStructure.length;i++) {
+		    appendOutlineTaskRow(p.sectionStructure[i].text, i);
 		}
 	    });
 
 	    $(document).on("root_displayParagraphsCall", function(e) {
-		displayParagraphs(curParagraphs);
+		displayParagraphs(curParagraphs, false);
 	    });
 
 	    $(document).on("extension_confirmPutParagraph", function(e) {
@@ -2141,7 +2977,7 @@ function getClickedItem(mutationsList){
 
 		if(paragraphIdentifiers[p.objId][paragraphNumber] != p.paragraphId) {
 			paragraphIdentifiers[p.objId][paragraphNumber] = p.paragraphId;
-			displayParagraphs(curParagraphs);
+			displayParagraphs(curParagraphs, false);
 		}
 
 		console.log(p);
@@ -2156,7 +2992,7 @@ function getClickedItem(mutationsList){
 
 		paragraphIdentifiers[p.objId][parseInt(p.paragraphNumber)] = p.paragraphId;
 
-		displayParagraphs(curParagraphs);
+		displayParagraphs(curParagraphs, false);
 	    });
 
 	    $(document).on("pdfjs_storeMappingWithCurrentParagraph", function(e) {
@@ -2200,7 +3036,7 @@ function getClickedItem(mutationsList){
 	    $(document).on("prepareSnapshotForAutoComplete", function(e) {
 		var p = e.detail;
 
-		systemTurn = true;
+	/// 	systemTurn = true;
 		systemTurnBox = selectedBoxID;
 
 		console.log("********** SNAPSHOT **********");
@@ -2367,8 +3203,7 @@ function getClickedItem(mutationsList){
 		// console.log(p);
 		// console.log(e);
 
-
-		if(p.keyCode == 9) { // tab : 9
+		if(p.keyCode == 40) { // tab : 9
 		    if(autoCompleteAppeared) {
 			//                        keyDown(8, function() { // back space
 			//                            keyDown(27, function() { // esc
@@ -2390,6 +3225,7 @@ function getClickedItem(mutationsList){
 			    width: boundingClientRect.width,
 			    objID: objID,
 			    paragraph: selectedParagraphNumber,
+			    paragraphAutocompleteIdentifier: createObjId(),
 			    paragraphIdentifier: selectedParagraphIdentifier,
 			    pageID: selectedPage
 			});
@@ -2477,6 +3313,30 @@ function getClickedItem(mutationsList){
 		issueEvent(document, "getParagraphMapping", null);
 	    }
 	}
+
+	$(".panel-right").append(
+		'<div id="testDiv"> test test </div>'
+		);
+
+	$("#testDiv").css("position", "absolute");
+	$("#testDiv").html("haha");
+	$("#testDiv").css("left", 0);
+	$("#testDiv").css("top", 0);
+
+	/*
+	$(".filmstrip").mousedown(function(e) {
+	    console.log("mousedown");
+	});
+
+	$(".filmstrip").mouseup(function(e) {
+	    console.log("mouseup");
+	});
+
+	$(".filmstrip").mousemove(function(e) {
+	    console.log("mousemove");
+	});
+	*/
+
     });
 
     /*
